@@ -20,26 +20,26 @@ static uint16_t w_;
 static uint16_t h_;
 static bool fbook_;
 
-static const GLubyte indices_[] = {
+static const uint8_t indices_[] = {
 	0, 1, 2,
 	2, 3, 0,
 };
 
-static float vertnorm_[] = {
+static const float vertnorm_[] = {
 	-1, 1,
 	1, 1,
 	1, -1,
 	-1, -1,
 };
 
-static float vertflip_[] = {
-	1, -1,
+static const float vertflip_[] = {
 	-1, -1,
-	-1, 1,
+	1, -1,
 	1, 1,
+	-1, 1,
 };
 
-static float *vertices_ = vertnorm_;
+static const float *vertices_ = vertnorm_;
 
 static const float coords_[] = {
 	0, 1,
