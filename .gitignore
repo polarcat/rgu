@@ -1,0 +1,6 @@
+lib/src/jni/libar
+build
+tags
+.gradle
+.externalNativeBuild
+*.swp

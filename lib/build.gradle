@@ -1,0 +1,46 @@
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 23
+    buildToolsVersion '27.0.3'
+    defaultConfig {
+        minSdkVersion 23
+        targetSdkVersion 23
+        versionCode 1
+        versionName "1.0"
+        ndk {
+            abiFilters 'arm64-v8a'
+            abiFilters 'armeabi-v7a'
+        }
+
+        externalNativeBuild {
+            ndkBuild {
+                targets "3d"
+                arguments "-j10"
+            }
+        }
+    }
+    externalNativeBuild {
+        ndkBuild {
+            path 'src/jni/Android.mk'
+        }
+    }
+    sourceSets {
+        main {
+            jniLibs.srcDirs 'png/libs'
+            jniLibs.srcDirs 'jpeg/libs'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled true
+        }
+    }
+    productFlavors {
+    }
+}
+
+dependencies {
+//    implementation 'com.google.ar:core:1.2.1'
+//    implementation 'com.android.support:appcompat-v7:27.0.2'
+}
