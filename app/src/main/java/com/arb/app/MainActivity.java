@@ -46,12 +46,15 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer
 		super.onResume();
 		scene.resume(getApplicationContext(), this);
 		surface_.onResume();
+		startCamera();
 	}
 
 	@Override
 	protected void onPause()
 	{
 		super.onPause();
+		camera_.stopPreview();
+		camera_.release();
 		scene.pause();
 		surface_.onPause();
 	}
@@ -60,14 +63,13 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer
 	protected void onDestroy()
 	{
 		super.onDestroy();
+		camera_.stopPreview();
+		camera_.release();
 		scene.close();
 	}
 
-	@Override
-	public void onSurfaceCreated(GL10 gl, EGLConfig cfg)
+	private void startCamera()
 	{
-		texture_ = new SurfaceTexture(scene.open(getAssets()));
-
 		synchronized(this) {
 			camera_ = Camera.open();
 			Camera.Parameters p = camera_.getParameters();
@@ -82,6 +84,13 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer
 
 			camera_.startPreview();
 		}
+	}
+
+	@Override
+	public void onSurfaceCreated(GL10 gl, EGLConfig cfg)
+	{
+		texture_ = new SurfaceTexture(scene.open(getAssets()));
+		startCamera();
 	}
 
 	@Override
