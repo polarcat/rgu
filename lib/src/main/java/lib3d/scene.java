@@ -20,4 +20,5 @@ public class scene {
 	public static native void resume(Context context, Activity activity);
 	public static native void pause();
 	public static native void close();
+	public static native void input(float x, float y);
 }

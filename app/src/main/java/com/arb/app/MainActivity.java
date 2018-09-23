@@ -7,6 +7,7 @@ import android.app.Activity;
 import android.hardware.Camera;
 import android.util.Log;
 import android.view.SurfaceView;
+import android.view.MotionEvent;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.graphics.SurfaceTexture;
@@ -105,5 +106,17 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer
 	{
 		texture_.updateTexImage();
 		scene.render();
+	}
+
+	@Override
+	public boolean onTouchEvent(MotionEvent e)
+	{
+		switch (e.getAction()) {
+		case MotionEvent.ACTION_DOWN:
+			scene.input(e.getX(), e.getY());
+			break;
+		}
+
+		return true;
 	}
 }
