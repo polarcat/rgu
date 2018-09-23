@@ -95,4 +95,4 @@ float gm_line_angle(const union gm_line *l, uint8_t perp);
   (center_y) + (radius) * sin(angle)
 
 #define gm_norm_x(x, w) (x) / ((w) * .5) - 1.
-#define gm_norm_y(y, h) (y) / ((h) * .5) - 1.
+#define gm_norm_y(y, h) 1. - (y) / ((h) * .5)
