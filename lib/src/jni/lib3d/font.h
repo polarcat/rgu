@@ -9,16 +9,6 @@
 
 #include <stdint.h>
 
-struct text {
-	const char *str;
-	uint16_t len;
-	uint8_t normxy:1;
-	uint16_t x;
-	uint16_t y;
-	uint32_t fg;
-	uint32_t bg;
-};
-
 struct font_info {
 	uint32_t prog;
 	int a_pos;
@@ -40,4 +30,5 @@ struct font_info {
 
 void font_close(struct font_info *info);
 void font_open(struct font_info *info, float size, const char *path);
-void font_render(const struct font_info *info, const struct text *text);
+void font_render(const struct font_info *info, const char *str, uint16_t len,
+  float x, float y, uint32_t fg, uint32_t bg);

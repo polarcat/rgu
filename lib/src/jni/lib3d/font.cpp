@@ -199,53 +199,40 @@ static uint32_t *glchar(const struct font_info *info, uint32_t code, uint32_t *r
 	return rgba + spacing(gw, info->font_size);
 }
 
-void font_render(const struct font_info *info, const struct text *text)
+void font_render(const struct font_info *info, const char *str, uint16_t len,
+  float x, float y, uint32_t fg, uint32_t bg)
 {
 	if (!info->data_buf)
 		return;
 
-	uint16_t x = text->x;
-	uint16_t y = text->y;
-	uint16_t w = text_width(info, text->str, text->len);
+	uint16_t w = text_width(info, str, len);
 
 	if (w < info->font_size)
 		return;
 
-	GLuint tex;
-	GLuint bg;
 	uint16_t h = info->font_size;
 	uint32_t size = w * h * 4;
 	uint8_t rgba[size];
 	uint32_t *ptr = (uint32_t *) rgba;
-	const char *str_ptr = text->str;
+	const char *str_ptr = str;
 	uint8_t glyph[info->font_size * info->font_size];
 
-	utils_fill2d((uint32_t *) rgba, (uint32_t *) (rgba + size), text->bg);
+	utils_fill2d((uint32_t *) rgba, (uint32_t *) (rgba + size), bg);
 
-	while (str_ptr < text->str + text->len)
-		ptr = glchar(info, *str_ptr++, ptr, w, glyph, text->fg);
+	while (str_ptr < str + len)
+		ptr = glchar(info, *str_ptr++, ptr, w, glyph, fg);
 
 	GLint wh[4];
 	glGetIntegerv(GL_VIEWPORT, wh);
-	float xx;
-	float yy;
-
-	if (text->normxy) {
-		xx = text->x;
-		yy = text->y;
-	} else {
-		xx = x / (wh[2] * .5) - 1;
-		yy = 1 - y / (wh[3] * .5);
-	}
 
 	float ww = (float) w / wh[2];
 	float hh = (float) h / wh[3];
 
 	float vertices[] = {
-		xx, yy - hh,
-		xx, yy,
-		xx + ww, yy,
-		xx + ww, yy - hh,
+		x, y - hh,
+		x, y,
+		x + ww, y,
+		x + ww, y - hh,
 	};
 
 #if 0
@@ -262,6 +249,8 @@ void font_render(const struct font_info *info, const struct text *text)
 	  wh[2], wh[3]
 	);
 #endif
+
+	GLuint tex;
 
 	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &tex);
