@@ -6,6 +6,8 @@
  */
 
 #include <unistd.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 #ifdef ANDROID
 #include <android/asset_manager_jni.h>
@@ -16,6 +18,9 @@
 #include <sys/mman.h>
 #endif
 
+#include <common/time.h>
+#include <common/list.h>
+
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 
@@ -23,6 +28,60 @@
 
 #include "gl.h"
 #include "font.h"
+
+enum {
+	TEXT_DISPLAYED,
+	TEXT_DISPLAY,
+	TEXT_PREPARED,
+	TEXT_PREPARE,
+};
+
+struct image {
+	uint8_t *data;
+	uint32_t size;
+	uint16_t w;
+};
+
+#define TEXT_QUEUE_SIZE 4
+
+struct text {
+	uint8_t state;
+	char *str;
+	uint16_t len;
+	float x;
+	float y;
+	uint32_t fg;
+	uint32_t bg;
+	struct image image;
+};
+
+struct font {
+	stbtt_fontinfo stbtt;
+
+	uint32_t prog;
+	int a_pos;
+	int a_uv;
+	int u_tex;
+	GLuint tex;
+	int fd;
+	const uint8_t *data_buf;
+	size_t data_len;
+	int ascent;
+	int descent;
+	float scale;
+	uint16_t size;
+
+	pthread_t thread;
+	sem_t prepare;
+
+	pthread_mutex_t text_lock;
+	struct text text[TEXT_QUEUE_SIZE];
+	struct text *text_end;
+
+#ifdef ANDROID
+	void *asset;
+#endif
+};
 
 static const GLubyte indices_[] = {
         0, 1, 2,
@@ -36,146 +95,43 @@ static const float uvs_[] = {
         1, 1,
 };
 
-void font_close(struct font_info *info)
+#define spacing(glyph_width, size) ((uint8_t) (glyph_width + size / 10))
+
+static uint16_t text_width(struct font *font, const char *str, const size_t len)
 {
-#ifdef ANDROID
-	AAsset_close((AAsset *) info->asset);
-	info->asset = NULL;
-#else
-	if (info->data_buf) {
-		munmap(info->data_buf, info->data_len);
-		info->data_buf = NULL;
-	}
-
-	if (info->fd > -1) {
-		close(info->fd);
-		info->fd = -1;
-	}
-#endif
-
-	free(info->font);
-	info->font = NULL;
-}
-
-void font_open(struct font_info *info, float size, const char *path)
-{
-#ifdef ANDROID
-	AAsset *asset = AAssetManager_open((AAssetManager *) info->asset_manager,
-	  path, AASSET_MODE_BUFFER);
-
-	info->data_buf = (const uint8_t *) AAsset_getBuffer(asset);
-	info->data_len = AAsset_getLength(asset);
-	info->asset = asset;
-#else
-	struct stat st;
-
-	if (stat(path, &st) < 0) {
-		ee("failed to stat file %s\n", path);
-		return;
-	}
-
-	if ((info->fd = open(path, O_RDONLY)) < 0) {
-		ee("failed to open file %s\n", path);
-		return;
-	}
-
-	info->data_buf = (uint8_t *) mmap(NULL, st.st_size, PROT_READ,
-	  MAP_PRIVATE, info->fd, 0);
-
-	if (!info->data_buf) {
-		ee("failed to map file %s\n", path);
-		return;
-	}
-#endif
-	if (!(info->font = calloc(1, sizeof(stbtt_fontinfo)))) {
-		ee("failed to allocate %zu bytes\n", sizeof(stbtt_fontinfo));
-		return;
-	}
-
-	stbtt_fontinfo *font = (stbtt_fontinfo *) info->font;
-
-	stbtt_InitFont(font, info->data_buf, 0);
-
-	info->font_size = (uint16_t) ceil(size);
-	info->font_scale = stbtt_ScaleForPixelHeight(font, size);
-
-	stbtt_GetFontVMetrics(font, &info->font_ascent, &info->font_descent, 0);
-
-	info->font_ascent *= info->font_scale;
-	info->font_descent *= info->font_scale;
-
-	ii("font %s ok: scale %f | ascent %d | descent %d\n", path,
-	  info->font_scale, info->font_ascent, info->font_descent);
-
-	const char *fsrc =
-		"precision highp float;\n"
-		"uniform sampler2D u_tex;\n"
-		"varying vec2 v_uv;\n"
-		"void main() {\n"
-			"gl_FragColor=texture2D(u_tex,v_uv);\n"
-		"}\0";
-
-	const char *vsrc =
-		"attribute vec2 a_pos;\n"
-		"attribute vec2 a_uv;\n"
-		"varying vec2 v_uv;\n"
-		"void main() {\n"
-			"gl_Position=vec4(a_pos,0,1);\n"
-			"v_uv=a_uv;\n"
-		"}\0";
-
-	if (!(info->prog = gl_make_prog(vsrc, fsrc))) {
-		font_close(info);
-		return;
-	}
-
-	glUseProgram(info->prog);
-
-	info->a_pos = glGetAttribLocation(info->prog, "a_pos");
-	info->a_uv = glGetAttribLocation(info->prog, "a_uv");
-	info->u_tex = glGetUniformLocation(info->prog, "u_tex");
-}
-
-#define spacing(glyph_width, font_size) ((uint8_t) (glyph_width + font_size / 10))
-
-static uint16_t text_width(const struct font_info *info, const char *str, const
-  size_t len)
-{
-	stbtt_fontinfo *font = (stbtt_fontinfo *) info->font;
 	int x0, y0, x1, y1;
 	uint16_t w = 0;
 	const char *str_ptr = str;
 
 	while (str_ptr < str + len) {
-		int g = stbtt_FindGlyphIndex(font, (uint8_t) *str_ptr++);
+		int g = stbtt_FindGlyphIndex(&font->stbtt, (uint8_t) *str_ptr++);
 
-		stbtt_GetGlyphBitmapBox(font, g, info->font_scale,
-		  info->font_scale, &x0, &y0, &x1, &y1);
-		w += spacing(x1 - x0, info->font_size);
+		stbtt_GetGlyphBitmapBox(&font->stbtt, g, font->scale,
+		  font->scale, &x0, &y0, &x1, &y1);
+		w += spacing(x1 - x0, font->size);
 	}
 
 	return w;
 }
 
-static uint32_t *glchar(const struct font_info *info, uint32_t code, uint32_t *rgba,
+static uint32_t *glchar(const struct font *font, uint32_t code, uint32_t *rgba,
   uint16_t row_len, uint8_t *gbuf_ptr, uint32_t color)
 {
-	stbtt_fontinfo *font = (stbtt_fontinfo *) info->font;
 	int x0, y0, x1, y1;
 	int gw;
 	int gh;
-	int g = stbtt_FindGlyphIndex(font, code);
+	int g = stbtt_FindGlyphIndex(&font->stbtt, code);
 
-	stbtt_GetGlyphBitmapBox(font, g, info->font_scale, info->font_scale,
+	stbtt_GetGlyphBitmapBox(&font->stbtt, g, font->scale, font->scale,
 	  &x0, &y0, &x1, &y1);
 
 	gw = x1 - x0;
 	gh = y1 - y0;
 
-	int baseline = info->font_ascent + y0;
+	int baseline = font->ascent + y0;
 
-	stbtt_MakeGlyphBitmap(font, gbuf_ptr, gw, gh, gw, info->font_scale,
-	  info->font_scale, g);
+	stbtt_MakeGlyphBitmap(&font->stbtt, gbuf_ptr, gw, gh, gw, font->scale,
+	  font->scale, g);
 
 	uint8_t *rgba_ptr = (uint8_t *) (rgba + baseline * row_len);
 
@@ -196,83 +152,319 @@ static uint32_t *glchar(const struct font_info *info, uint32_t code, uint32_t *r
 		rgba_ptr = (uint8_t *) (rgba + (row + baseline) * row_len);
 	}
 
-	return rgba + spacing(gw, info->font_size);
+	return rgba + spacing(gw, font->size);
 }
 
-void font_render(const struct font_info *info, const char *str, uint16_t len,
+static void prepare_text(struct font *font, struct text *text)
+{
+	uint16_t w;
+	uint32_t size;
+	uint8_t *image;
+
+	w = text_width(font, text->str, text->len);
+
+	if (w < font->size) {
+		text->state = TEXT_DISPLAYED; /* init again */
+		return;
+	}
+
+	size = font->size * w * 4;
+
+	if (size != text->image.size) {
+		free(text->image.data);
+
+		if (!(text->image.data = (uint8_t *) malloc(size))) {
+			text->state = TEXT_DISPLAYED;
+			return;
+		}
+
+		text->image.size = size;
+		text->image.w = w;
+	}
+
+	uint32_t *buf = (uint32_t *) text->image.data;
+	const char *str = text->str;
+	uint8_t glyph[font->size * font->size];
+
+	utils_fill2d(buf, (uint32_t *) (text->image.data + size), text->bg);
+
+	while (str < text->str + text->len)
+		buf = glchar(font, *str++, buf, w, glyph, text->fg);
+
+	text->state = TEXT_PREPARED;
+}
+
+static void *thread_work(void *arg)
+{
+	struct font *font = (struct font *) arg;
+	struct text *text_cur;
+	uint8_t found;
+
+	while (1) {
+		found = 0;
+		text_cur = font->text;
+		sem_wait(&font->prepare);
+
+		pthread_mutex_lock(&font->text_lock);
+
+		do {
+			if (text_cur->state == TEXT_PREPARE) {
+				found = 1;
+				break;
+			}
+		} while (++text_cur < font->text_end);
+
+		pthread_mutex_unlock(&font->text_lock);
+
+		if (found)
+			prepare_text(font, text_cur);
+	}
+
+	return NULL;
+}
+
+void font_close(struct font **ptr)
+{
+	struct font *font = *ptr;
+#ifdef ANDROID
+	AAsset_close((AAsset *) font->asset);
+	font->asset = NULL;
+#else
+	if (font->data_buf) {
+		munmap(font->data_buf, font->data_len);
+		font->data_buf = NULL;
+	}
+
+	if (font->fd > -1) {
+		close(font->fd);
+		font->fd = -1;
+	}
+#endif
+	glDeleteTextures(1, &font->tex);
+
+	for (uint8_t i = 0; i < TEXT_QUEUE_SIZE; ++i) {
+		free(font->text[i].image.data);
+		free(font->text[i].str);
+	}
+
+	free(font);
+	*ptr = NULL;
+}
+
+static uint8_t prepare_program(struct font *font)
+{
+	const char *fsrc =
+		"precision highp float;\n"
+		"uniform sampler2D u_tex;\n"
+		"varying vec2 v_uv;\n"
+		"void main() {\n"
+			"gl_FragColor=texture2D(u_tex,v_uv);\n"
+		"}\0";
+
+	const char *vsrc =
+		"attribute vec2 a_pos;\n"
+		"attribute vec2 a_uv;\n"
+		"varying vec2 v_uv;\n"
+		"void main() {\n"
+			"gl_Position=vec4(a_pos,0,1);\n"
+			"v_uv=a_uv;\n"
+		"}\0";
+
+	if (!(font->prog = gl_make_prog(vsrc, fsrc)))
+		return 0;
+
+	glUseProgram(font->prog);
+
+	font->a_pos = glGetAttribLocation(font->prog, "a_pos");
+	font->a_uv = glGetAttribLocation(font->prog, "a_uv");
+	font->u_tex = glGetUniformLocation(font->prog, "u_tex");
+
+	glGenTextures(1, &font->tex);
+	glBindTexture(GL_TEXTURE_2D, font->tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	return 1;
+}
+
+struct font *font_open(const char *path, float size, void *assets)
+{
+	struct font *font = (struct font *) calloc(1, sizeof(*font));
+
+	if (!font) {
+		ee("failed to allocate %zu bytes\n", sizeof(*font));
+		return NULL;
+	}
+
+	font->text_lock = PTHREAD_MUTEX_INITIALIZER;
+
+#ifdef ANDROID
+	AAsset *asset;
+
+	if (!assets) {
+		ee("bad assets manager\n");
+		goto err;
+	}
+
+	asset = AAssetManager_open((AAssetManager *) assets, path,
+	  AASSET_MODE_BUFFER);
+
+	if (!asset) {
+		ee("failed to open assets\n");
+		goto err;
+	}
+
+	font->data_buf = (const uint8_t *) AAsset_getBuffer(asset);
+	font->data_len = AAsset_getLength(asset);
+	font->asset = asset;
+#else
+	struct stat st;
+
+	if (stat(path, &st) < 0) {
+		ee("failed to stat file %s\n", path);
+		goto err;
+	}
+
+	if ((font->fd = open(path, O_RDONLY)) < 0) {
+		ee("failed to open file %s\n", path);
+		goto err;
+	}
+
+	font->data_buf = (uint8_t *) mmap(NULL, st.st_size, PROT_READ,
+	  MAP_PRIVATE, font->fd, 0);
+
+	if (!font->data_buf) {
+		ee("failed to map file %s\n", path);
+		goto err;
+	}
+#endif
+
+	if (!prepare_program(font))
+		goto err;
+
+	stbtt_InitFont(&font->stbtt, font->data_buf, 0);
+
+	font->size = (uint16_t) ceil(size);
+	font->scale = stbtt_ScaleForPixelHeight(&font->stbtt, size);
+
+	stbtt_GetFontVMetrics(&font->stbtt, &font->ascent, &font->descent, 0);
+
+	font->ascent *= font->scale;
+	font->descent *= font->scale;
+
+	ii("font %s ok: scale %f | ascent %d | descent %d\n", path,
+	  font->scale, font->ascent, font->descent);
+
+	font->text_end = font->text + TEXT_QUEUE_SIZE;
+
+	sem_init(&font->prepare, 0, 0);
+	pthread_create(&font->thread, NULL, thread_work, font);
+
+	return font;
+
+err:
+	font_close(&font);
+	return NULL;
+}
+
+void font_render(struct font *font, const char *str, uint16_t len,
   float x, float y, uint32_t fg, uint32_t bg)
 {
-	if (!info->data_buf)
-		return;
-
-	uint16_t w = text_width(info, str, len);
-
-	if (w < info->font_size)
-		return;
-
-	uint16_t h = info->font_size;
-	uint32_t size = w * h * 4;
-	uint8_t rgba[size];
-	uint32_t *ptr = (uint32_t *) rgba;
-	const char *str_ptr = str;
-	uint8_t glyph[info->font_size * info->font_size];
-
-	utils_fill2d((uint32_t *) rgba, (uint32_t *) (rgba + size), bg);
-
-	while (str_ptr < str + len)
-		ptr = glchar(info, *str_ptr++, ptr, w, glyph, fg);
-
+	float verts[8];
+	float norm_w;
+	float norm_h;
 	GLint wh[4];
+	struct text *text_ptr = font->text;
+	struct text *text_cur = NULL;
+
+	pthread_mutex_lock(&font->text_lock);
+
+	do {
+		if (text_ptr->state == TEXT_PREPARED) {
+			if (!text_cur) {
+				text_ptr->state = TEXT_DISPLAY;
+				text_cur = text_ptr;
+			}
+		} else if (text_ptr->state == TEXT_DISPLAYED) {
+			if (text_ptr->len == len) {
+				memcpy(text_ptr->str, str, len);
+			} else {
+				free(text_ptr->str);
+				text_ptr->str = strdup(str);
+			}
+
+			text_ptr->len = len;
+			text_ptr->fg = fg;
+			text_ptr->bg = bg;
+			text_ptr->state = TEXT_PREPARE;
+		}
+	} while (++text_ptr < font->text_end);
+
+	pthread_mutex_unlock(&font->text_lock);
+
+	int val = 1; /* to skip error checking */
+
+	sem_getvalue(&font->prepare, &val);
+
+	if (!val)
+		sem_post(&font->prepare);
+
+	if (!text_cur)
+		return;
+
 	glGetIntegerv(GL_VIEWPORT, wh);
 
-	float ww = (float) w / wh[2];
-	float hh = (float) h / wh[3];
+	norm_w = (float) text_cur->image.w / wh[2];
+	norm_h = (float) font->size / wh[3];
 
-	float vertices[] = {
-		x, y - hh,
-		x, y,
-		x + ww, y,
-		x + ww, y - hh,
-	};
+	verts[0] = x;
+	verts[1] = y - norm_h;
+
+	verts[2] = x;
+	verts[3] = y;
+
+	verts[4] = x + norm_w;
+	verts[5] = y;
+
+	verts[6] = x + norm_w;
+	verts[7] = y - norm_h;
 
 #if 0
-	ii("text %dx%d | "
-	   "xx %f, ww %f, yy %f, hh %f | "
+	ii("%s |"
+	   "text %p image %p | wh %ux%u | "
+	   "norm wh %f,%f | "
 	   "v0 %f,%f v1 %f,%f v2 %f,%f v3 %f,%f | "
 	   "disp %d,%d\n",
-	  w, h,
-	  xx, ww, yy, hh,
-	  vertices[0], vertices[1],
-	  vertices[2], vertices[3],
-	  vertices[4], vertices[5],
-	  vertices[6], vertices[7],
+	  text_cur->str,
+	  text_cur, text_cur->image.data,
+	  text_cur->image.w, font->size,
+	  norm_w, norm_h,
+	  verts[0], verts[1],
+	  verts[2], verts[3],
+	  verts[4], verts[5],
+	  verts[6], verts[7],
 	  wh[2], wh[3]
 	);
 #endif
 
-	GLuint tex;
+	glBindTexture(GL_TEXTURE_2D, font->tex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, text_cur->image.w, font->size,
+	  0, GL_RGBA, GL_UNSIGNED_BYTE, text_cur->image.data);
+
+	glUseProgram(font->prog);
 
 	glActiveTexture(GL_TEXTURE0);
-	glGenTextures(1, &tex);
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA,
-	  GL_UNSIGNED_BYTE, rgba);
-
-	glUseProgram(info->prog);
-
-	glUniform1i(info->u_tex, 0);
-	glVertexAttribPointer(info->a_pos, 2, GL_FLOAT, GL_FALSE, 0, vertices);
-	glEnableVertexAttribArray(info->a_pos);
-	glVertexAttribPointer(info->a_uv, 2, GL_FLOAT, GL_FALSE, 0, uvs_);
-	glEnableVertexAttribArray(info->a_uv);
+	glUniform1i(font->u_tex, 0);
+	glVertexAttribPointer(font->a_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
+	glEnableVertexAttribArray(font->a_pos);
+	glVertexAttribPointer(font->a_uv, 2, GL_FLOAT, GL_FALSE, 0, uvs_);
+	glEnableVertexAttribArray(font->a_uv);
 
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices_);
 
-	glDisableVertexAttribArray(info->a_uv);
-	glDisableVertexAttribArray(info->a_pos);
+	glDisableVertexAttribArray(font->a_uv);
+	glDisableVertexAttribArray(font->a_pos);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
-	glDeleteTextures(1, &tex);
+
+	text_cur->state = TEXT_DISPLAYED;
 }

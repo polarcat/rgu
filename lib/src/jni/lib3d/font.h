@@ -9,26 +9,9 @@
 
 #include <stdint.h>
 
-struct font_info {
-	uint32_t prog;
-	int a_pos;
-	int a_uv;
-	int u_tex;
-	int fd;
-	const uint8_t *data_buf;
-	size_t data_len;
-	void *font;
-	int font_ascent;
-	int font_descent;
-	float font_scale;
-	uint16_t font_size;
-#ifdef ANDROID
-	void *asset_manager;
-	void *asset;
-#endif
-};
+struct font;
 
-void font_close(struct font_info *info);
-void font_open(struct font_info *info, float size, const char *path);
-void font_render(const struct font_info *info, const char *str, uint16_t len,
+void font_close(struct font **font);
+struct font *font_open(const char *path, float size, void *assets);
+void font_render(struct font *font, const char *str, uint16_t len,
   float x, float y, uint32_t fg, uint32_t bg);

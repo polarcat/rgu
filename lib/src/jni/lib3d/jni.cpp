@@ -30,7 +30,7 @@ static uint16_t pat_y_;
 
 #include "writepng.h"
 
-static struct font_info font_;
+static struct font *font_;
 static float x_;
 static float y_;
 
@@ -43,9 +43,11 @@ extern "C" {
 
 jnicall(int, open, JNIEnv *env, jclass, jobject asset_manager)
 {
-	font_.asset_manager = AAssetManager_fromJava(env, asset_manager);
-	font_open(&font_, 128, "fonts/Shure-Tech-Mono-Nerd-Font-Complete.ttf");
-	tr_init(&font_);
+	if (!(font_ = font_open("fonts/Shure-Tech-Mono-Nerd-Font-Complete.ttf", 128,
+	  AAssetManager_fromJava(env, asset_manager))))
+		return -1;
+
+	tr_init(font_);
 
 	return bg_open();
 }
