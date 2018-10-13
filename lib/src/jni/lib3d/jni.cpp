@@ -58,7 +58,7 @@ jnicall(void, render, JNIEnv *, jclass)
 
 #ifdef HAVE_LIBAR
 	if (img_ && tr_ready()) {
-		bg_render_offscreen(img_, img_w_, img_h_);
+		bg_render_offscreen(img_, img_w_, img_h_, true);
 		tr_detect(img_, img_w_, img_h_, SCALE_FACTOR, touch_x_, touch_y_);
 #if 0
 		if (touch_x_ && touch_y_) {

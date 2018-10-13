@@ -14,6 +14,7 @@ static GLuint img_;
 static GLuint prog_;
 static GLuint texid_;
 static GLint u_tex_;
+static GLint u_grey_;
 static GLint a_pos_;
 static GLint a_uv_;
 static uint16_t w_;
@@ -89,9 +90,20 @@ int bg_open(void)
 		"#extension GL_OES_EGL_image_external : require\n"
 		"precision highp float;\n"
 		"varying vec2 v_uv;\n"
+		"uniform int u_grey;\n"
 		"uniform samplerExternalOES u_tex;\n"
 		"void main() {\n"
-		"gl_FragColor=texture2D(u_tex,v_uv);\n"
+			"if (u_grey==0) {\n"
+				"gl_FragColor=texture2D(u_tex,v_uv);\n"
+			"} else {\n"
+				"vec3 rgb=texture2D(u_tex,v_uv).rgb;\n"
+#if 0 /* relative luminance */
+				"float y=.2126*rgb.r+.7152*rgb.g+.0722*rgb.b;\n"
+#else /* perceived luminance */
+				"float y=.299*rgb.r+.587*rgb.g+.114*rgb.b;\n"
+#endif
+				"gl_FragColor=vec4(y,y,y,1);\n"
+			"}\n"
 		"}\0";
 
 	const char *vsrc =
@@ -119,6 +131,7 @@ int bg_open(void)
 	a_pos_ = glGetAttribLocation(prog_, "a_pos");
 	a_uv_ = glGetAttribLocation(prog_, "a_uv");
 	u_tex_ = glGetUniformLocation(prog_, "u_tex");
+	u_grey_ = glGetUniformLocation(prog_, "u_grey");
 
 	ii("background init ok, texture %u\n", texid_);
 
@@ -130,13 +143,14 @@ int bg_open(void)
 	return texid_;
 }
 
-void bg_render(void)
+void bg_render(bool grey)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	gl_disable_features();
 
 	glBindTexture(GL_TEXTURE_EXTERNAL_OES, texid_);
 	glUseProgram(prog_);
+	glUniform1i(u_grey_, grey);
 	glVertexAttribPointer(a_pos_, 2, GL_FLOAT, GL_FALSE, 0, vertices_);
 	glEnableVertexAttribArray(a_pos_);
 	glVertexAttribPointer(a_uv_, 2, GL_FLOAT, GL_FALSE, 0, coords_);
@@ -152,7 +166,7 @@ void bg_render(void)
 	gl_enable_features();
 }
 
-void bg_render_offscreen(uint8_t *buf, uint16_t w, uint16_t h)
+void bg_render_offscreen(uint8_t *buf, uint16_t w, uint16_t h, bool grey)
 {
 	if (fbook_) {
 		dd("bind fbo %u; offscreen texture %u buffer at %p\n", fbo_,
@@ -165,7 +179,7 @@ void bg_render_offscreen(uint8_t *buf, uint16_t w, uint16_t h)
 	glViewport(0, 0, w, h);
 
 	vertices_ = vertflip_;
-	bg_render();
+	bg_render(grey);
 	vertices_ = vertnorm_;
 
 	glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buf);
