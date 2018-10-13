@@ -1,3 +1,10 @@
+/* color.h: color manipulation helpers
+ *
+ * Copyright (c) 2018, Aliaksei Katovich <aliaksei.katovich at gmail.com>
+ *
+ * Released under the GNU General Public License, version 2
+ */
+
 #pragma once
 
 #include <stdint.h>
@@ -53,8 +60,8 @@ static inline void rgb2hsi(uint8_t r, uint8_t g, uint8_t b, float *h, float *s,
 	*i *= 100.;
 }
 
-static inline void rgb2hsv(uint8_t r, uint8_t g, uint8_t b, float *h, float *s,
-  float *v)
+static inline uint8_t rgb2hsv(uint8_t r, uint8_t g, uint8_t b, float *h,
+  float *s, float *v)
 {
 	uint8_t max;
 
@@ -80,7 +87,7 @@ static inline void rgb2hsv(uint8_t r, uint8_t g, uint8_t b, float *h, float *s,
 
 	if (c == 0) {
 		*h = *s = 0;
-		return;
+		return 0;
 	} else if (max == r) {
 		*h = (g - b) / 255. / c;
 		*h = fmodf(*h, 6);
@@ -92,7 +99,7 @@ static inline void rgb2hsv(uint8_t r, uint8_t g, uint8_t b, float *h, float *s,
 
 	*h *= 60;
 
-	if (*h <= 0)
+	if (*h < 0)
 		*h += 360.;
 
 	if (max == 0)
@@ -101,4 +108,6 @@ static inline void rgb2hsv(uint8_t r, uint8_t g, uint8_t b, float *h, float *s,
 		*s = c / *v * 100.;
 
 	*v *= 100.;
+
+	return 1;
 }

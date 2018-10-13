@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-void write_png(const char *path, const uint8_t *buf, uint16_t w, uint16_t h)
+static void write_png(const char *path, const uint8_t *buf, uint16_t w, uint16_t h)
 {
 	FILE *fp;
 	uint16_t x;

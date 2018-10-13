@@ -18,8 +18,8 @@ static uint16_t img_w_;
 static uint16_t img_h_;
 static uint8_t *img_;
 static uint16_t frames_;
-static uint16_t pat_x_;
-static uint16_t pat_y_;
+static uint16_t touch_x_;
+static uint16_t touch_y_;
 #endif
 
 #define TAG LIB_TAG": jni"
@@ -28,7 +28,7 @@ static uint16_t pat_y_;
 #include "bg.h"
 #include "font.h"
 
-#include "writepng.h"
+#include <common/writepng.h>
 
 static struct font *font_;
 static float x_;
@@ -59,16 +59,16 @@ jnicall(void, render, JNIEnv *, jclass)
 #ifdef HAVE_LIBAR
 	if (img_ && tr_ready()) {
 		bg_render_offscreen(img_, img_w_, img_h_);
-		tr_detect(img_, img_w_, img_h_, SCALE_FACTOR, pat_x_, pat_y_);
+		tr_detect(img_, img_w_, img_h_, SCALE_FACTOR, touch_x_, touch_y_);
 #if 0
-		if (pat_x_ && pat_y_) {
+		if (touch_x_ && touch_y_) {
 			write_png("/storage/0000-0000/1.png", img_, img_w_,
 			  img_h_);
 		}
 #endif
 
-		pat_x_ = 0;
-		pat_y_ = 0;
+		touch_x_ = 0;
+		touch_y_ = 0;
 	}
 
 	tr_render();
@@ -113,8 +113,8 @@ jnicall(void, resume, JNIEnv *env, jclass, jobject ctx, jobject act)
 jnicall(void, input, JNIEnv *, jclass, float x, float y)
 {
 	ii("touch at { %f, %f }", x, y);
-	pat_x_ = x;
-	pat_y_ = y;
+	touch_x_ = x;
+	touch_y_ = y;
 }
 
 #ifdef __cplusplus
