@@ -5,7 +5,10 @@
  * Released under the GNU General Public License, version 2
  */
 
+#define TAG "gl"
+
 #include <stdlib.h>
+#include <utils/log.h>
 
 #include "gl.h"
 
@@ -18,7 +21,7 @@ static GLuint make_shader(GLenum type, const char *src)
 		return 0;
 	}
 
-	glShaderSource(shader, 1, &src, nullptr);
+	glShaderSource(shader, 1, &src, NULL);
 	glCompileShader(shader);
 	GLint compiled = 0;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
@@ -36,8 +39,9 @@ static GLuint make_shader(GLenum type, const char *src)
 		if (!buf)
 			return 0;
 
-		glGetShaderInfoLog(shader, len, nullptr, buf);
-		ee("could not compile %s shader\n%s\n",
+		errno = 0;
+		glGetShaderInfoLog(shader, len, NULL, buf);
+		ee("could not compile %s shader: %s",
 		  type == GL_VERTEX_SHADER ? "vertex" : "fragment", buf);
 		free(buf);
 		glDeleteShader(shader);
@@ -63,7 +67,7 @@ GLuint gl_make_prog(const char *vsrc, const char *fsrc)
 
 	GLuint fsh = make_shader(GL_FRAGMENT_SHADER, fsrc);
 
-	if (!fsrc)
+	if (!fsh)
 		return 0;
 
 	glAttachShader(prog, vsh);
@@ -80,13 +84,15 @@ GLuint gl_make_prog(const char *vsrc, const char *fsrc)
 			char *buf = (char *) malloc(len);
 
 			if (buf) {
-				glGetProgramInfoLog(prog, len, nullptr, buf);
-				ee("failed to link prog:\n%s\n", buf);
+				errno = 0;
+				glGetProgramInfoLog(prog, len, NULL, buf);
+				ee("%s", buf);
 				free(buf);
 			}
 		}
 
 		glDeleteProgram(prog);
+		ee("failed to link program %u\n", prog);
 		return 0;
 	}
 

@@ -18,13 +18,14 @@
 #include <sys/mman.h>
 #endif
 
-#include <common/time.h>
-#include <common/list.h>
+#define TAG "ttf"
+
+#include <utils/image.h>
+#include <utils/time.h>
+#include <utils/list.h>
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
-
-#define TAG LIB_TAG": ttf"
 
 #include "gl.h"
 #include "font.h"
@@ -36,7 +37,7 @@ enum {
 	TEXT_PREPARE,
 };
 
-struct image {
+struct bitmap {
 	uint8_t *data;
 	uint32_t size;
 	uint16_t w;
@@ -52,7 +53,7 @@ struct text {
 	float y;
 	uint32_t fg;
 	uint32_t bg;
-	struct image image;
+	struct bitmap bitmap;
 };
 
 struct font {
@@ -159,7 +160,7 @@ static void prepare_text(struct font *font, struct text *text)
 {
 	uint16_t w;
 	uint32_t size;
-	uint8_t *image;
+	uint8_t *bitmap;
 
 	w = text_width(font, text->str, text->len);
 
@@ -170,23 +171,23 @@ static void prepare_text(struct font *font, struct text *text)
 
 	size = font->size * w * 4;
 
-	if (size != text->image.size) {
-		free(text->image.data);
+	if (size != text->bitmap.size) {
+		free(text->bitmap.data);
 
-		if (!(text->image.data = (uint8_t *) malloc(size))) {
+		if (!(text->bitmap.data = (uint8_t *) malloc(size))) {
 			text->state = TEXT_DISPLAYED;
 			return;
 		}
 
-		text->image.size = size;
-		text->image.w = w;
+		text->bitmap.size = size;
+		text->bitmap.w = w;
 	}
 
-	uint32_t *buf = (uint32_t *) text->image.data;
+	uint32_t *buf = (uint32_t *) text->bitmap.data;
 	const char *str = text->str;
 	uint8_t glyph[font->size * font->size];
 
-	utils_fill2d(buf, (uint32_t *) (text->image.data + size), text->bg);
+	fillrect(buf, (uint32_t *) (text->bitmap.data + size), text->bg);
 
 	while (str < text->str + text->len)
 		buf = glchar(font, *str++, buf, w, glyph, text->fg);
@@ -243,7 +244,7 @@ void font_close(struct font **ptr)
 	glDeleteTextures(1, &font->tex);
 
 	for (uint8_t i = 0; i < TEXT_QUEUE_SIZE; ++i) {
-		free(font->text[i].image.data);
+		free(font->text[i].bitmap.data);
 		free(font->text[i].str);
 	}
 
@@ -295,7 +296,7 @@ struct font *font_open(const char *path, float size, void *assets)
 		return NULL;
 	}
 
-	font->text_lock = PTHREAD_MUTEX_INITIALIZER;
+	pthread_mutex_init(&font->text_lock, NULL);
 
 #ifdef ANDROID
 	AAsset *asset;
@@ -413,7 +414,7 @@ void font_render(struct font *font, const char *str, uint16_t len,
 
 	glGetIntegerv(GL_VIEWPORT, wh);
 
-	norm_w = (float) text_cur->image.w / wh[2];
+	norm_w = (float) text_cur->bitmap.w / wh[2];
 	norm_h = (float) font->size / wh[3];
 
 	verts[0] = x;
@@ -430,13 +431,13 @@ void font_render(struct font *font, const char *str, uint16_t len,
 
 #if 0
 	ii("%s |"
-	   "text %p image %p | wh %ux%u | "
+	   "text %p bitmap %p | wh %ux%u | "
 	   "norm wh %f,%f | "
 	   "v0 %f,%f v1 %f,%f v2 %f,%f v3 %f,%f | "
 	   "disp %d,%d\n",
 	  text_cur->str,
-	  text_cur, text_cur->image.data,
-	  text_cur->image.w, font->size,
+	  text_cur, text_cur->bitmap.data,
+	  text_cur->bitmap.w, font->size,
 	  norm_w, norm_h,
 	  verts[0], verts[1],
 	  verts[2], verts[3],
@@ -447,8 +448,8 @@ void font_render(struct font *font, const char *str, uint16_t len,
 #endif
 
 	glBindTexture(GL_TEXTURE_2D, font->tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, text_cur->image.w, font->size,
-	  0, GL_RGBA, GL_UNSIGNED_BYTE, text_cur->image.data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, text_cur->bitmap.w, font->size,
+	  0, GL_RGBA, GL_UNSIGNED_BYTE, text_cur->bitmap.data);
 
 	glUseProgram(font->prog);
 

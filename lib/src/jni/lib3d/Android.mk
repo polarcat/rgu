@@ -4,16 +4,17 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := lib3d
 LOCAL_SRC_FILES := \
-jni.cpp \
-utils.cpp \
-font.cpp \
-gl.cpp \
-gm.cpp \
-bg.cpp \
+jni.c \
+font.c \
+gl.c \
+gm.c \
+bg.c \
+point.c \
+../utils/image.c \
 
 ifeq (,$(wildcard ../libar))
 LOCAL_SRC_FILES += \
-../libar/tracking.cpp
+../libar/tracking.c
 LOCAL_CFLAGS += "-DHAVE_LIBAR"
 endif
 

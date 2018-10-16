@@ -1,17 +1,15 @@
-/* color.h: color manipulation helpers
+/* color.c: color manipulation helpers
  *
  * Copyright (c) 2018, Aliaksei Katovich <aliaksei.katovich at gmail.com>
  *
  * Released under the GNU General Public License, version 2
  */
 
-#pragma once
-
-#include <stdint.h>
 #include <math.h>
 
-static inline void rgb2hsi(uint8_t r, uint8_t g, uint8_t b, float *h, float *s,
-  float *i)
+#include "color.h"
+
+void rgb2hsi(uint8_t r, uint8_t g, uint8_t b, float *h, float *s, float *i)
 {
 	*i = (r + g + b) / 3 / 255.;
 
@@ -60,8 +58,7 @@ static inline void rgb2hsi(uint8_t r, uint8_t g, uint8_t b, float *h, float *s,
 	*i *= 100.;
 }
 
-static inline uint8_t rgb2hsv(uint8_t r, uint8_t g, uint8_t b, float *h,
-  float *s, float *v)
+uint8_t rgb2hsv(uint8_t r, uint8_t g, uint8_t b, float *h, float *s, float *v)
 {
 	uint8_t max;
 
@@ -110,4 +107,22 @@ static inline uint8_t rgb2hsv(uint8_t r, uint8_t g, uint8_t b, float *h,
 	*v *= 100.;
 
 	return 1;
+}
+
+/* color format #ffffff */
+void str2rgb(const char *color, uint8_t *r, uint8_t *g, uint8_t *b)
+{
+	char plane[5] = { '0', 'x', 0, 0, 0, };
+
+	plane[2] = color[0];
+	plane[3] = color[1];
+	*r = strtol(plane, NULL, 16);
+
+	plane[2] = color[2];
+	plane[3] = color[3];
+	*g = strtol(plane, NULL, 16);
+
+	plane[2] = color[4];
+	plane[3] = color[5];
+	*b = strtol(plane, NULL, 16);
 }

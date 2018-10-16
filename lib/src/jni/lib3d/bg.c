@@ -5,7 +5,9 @@
  * Released under the GNU General Public License, version 2
  */
 
-#define TAG LIB_TAG": bg"
+#define TAG "bg"
+
+#include <utils/log.h>
 
 #include "gl.h"
 
@@ -19,7 +21,7 @@ static GLint a_pos_;
 static GLint a_uv_;
 static uint16_t w_;
 static uint16_t h_;
-static bool fbook_;
+static uint8_t fbook_;
 
 static const uint8_t indices_[] = {
 	0, 1, 2,
@@ -49,7 +51,7 @@ static const float coords_[] = {
 	1, 1,
 };
 
-static inline bool prepare_offscreen(uint8_t *buf, uint16_t w, uint16_t h)
+static inline uint8_t prepare_offscreen(uint8_t *buf, uint16_t w, uint16_t h)
 {
 	ii("prepare fbo %u; offscreen texture %u buffer at %p\n", fbo_, img_,
 	  buf);
@@ -57,7 +59,7 @@ static inline bool prepare_offscreen(uint8_t *buf, uint16_t w, uint16_t h)
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
 	glBindTexture(GL_TEXTURE_2D, img_);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA,
-	  GL_UNSIGNED_BYTE, nullptr);
+	  GL_UNSIGNED_BYTE, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -69,13 +71,13 @@ static inline bool prepare_offscreen(uint8_t *buf, uint16_t w, uint16_t h)
 	  GL_FRAMEBUFFER_COMPLETE) {
 		ee("incomplete fbo %u; texture %u error %#x\n", fbo_, img_,
 		  glGetError());
-		return false;
+		return 0;
 	}
 
 	ii("complete fbo %u; texture %u\n", fbo_, img_);
-	fbook_ = true;
+	fbook_ = 1;
 
-	return true;
+	return 1;
 }
 
 void bg_close(void)
@@ -143,7 +145,7 @@ int bg_open(void)
 	return texid_;
 }
 
-void bg_render(bool grey)
+void bg_render(uint8_t grey)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	gl_disable_features();
@@ -166,7 +168,7 @@ void bg_render(bool grey)
 	gl_enable_features();
 }
 
-void bg_render_offscreen(uint8_t *buf, uint16_t w, uint16_t h, bool grey)
+void bg_render_offscreen(uint8_t *buf, uint16_t w, uint16_t h, uint8_t grey)
 {
 	if (fbook_) {
 		dd("bind fbo %u; offscreen texture %u buffer at %p\n", fbo_,

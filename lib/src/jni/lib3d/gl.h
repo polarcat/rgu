@@ -13,20 +13,18 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
-#include "utils.h"
-
 #define gl_disable_features() {\
     glDisable(GL_DEPTH_TEST);\
     glDisable(GL_CULL_FACE);\
     glDisable(GL_SCISSOR_TEST);\
     glDisable(GL_STENCIL_TEST);\
     glDisable(GL_BLEND);\
-    glDepthMask(false);\
+    glDepthMask(0);\
 }
 
 #define gl_enable_features() {\
     glEnable(GL_DEPTH_TEST);\
-    glDepthMask(true);\
+    glDepthMask(1);\
 }
 
 #define gl_error(msg) {\
