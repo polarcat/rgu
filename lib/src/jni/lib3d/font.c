@@ -393,6 +393,8 @@ void font_render(struct font *font, const char *str, uint16_t len,
 				text_ptr->str = strdup(str);
 			}
 
+			text_ptr->x = x;
+			text_ptr->y = y;
 			text_ptr->len = len;
 			text_ptr->fg = fg;
 			text_ptr->bg = bg;
@@ -416,6 +418,9 @@ void font_render(struct font *font, const char *str, uint16_t len,
 
 	norm_w = (float) text_cur->bitmap.w / wh[2];
 	norm_h = (float) font->size / wh[3];
+
+	x = text_cur->x;
+	y = text_cur->y;
 
 	verts[0] = x;
 	verts[1] = y - norm_h;
