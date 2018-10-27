@@ -97,7 +97,7 @@ static inline uint32_t time_ms(void)
 	frames_##tag++;\
 }
 
-#define sleepms(ms) {\
+#define sleep_ms(ms) {\
 	struct timespec t = { .tv_sec = 0, .tv_nsec = ms * 1000 * 1000, };\
 	clock_nanosleep(CLOCK_MONOTONIC, 0, &t, NULL);\
 	clock_gettime(CLOCK_MONOTONIC, &t);\

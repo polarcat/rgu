@@ -18,7 +18,7 @@
 #define TAG "log"
 #endif
 
-#define LOG_TAG "\033[0;35m"LIB_TAG"/"TAG "\033[0m : "
+#define LOG_TAG "\033[0;35m"LIB_TAG"/"TAG "\033[0m "
 
 #ifdef ANDROID
 #include <android/log.h>
