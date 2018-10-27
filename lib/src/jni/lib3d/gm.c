@@ -5,6 +5,9 @@
  * Released under the GNU General Public License, version 2
  */
 
+#include <stdlib.h>
+#include <utils/log.h>
+
 #include "gm.h"
 
 /* column-major matrix4 ops */
@@ -342,4 +345,46 @@ float gm_line_angle(const union gm_line *l, uint8_t perp)
 
 		return angle; /* of incline in radians */
 	}
+}
+
+float gm_cos_[360];
+float gm_sin_[360];
+float *gm_rx_ = NULL;
+float *gm_ry_ = NULL;
+uint16_t gm_max_x_ = 0;
+
+void init_gm(uint16_t x_max)
+{
+    for (uint16_t a = 0; a < 360; ++a) {
+        gm_cos_[a] = cos(radians(a));
+        gm_sin_[a] = sin(radians(a));
+    }
+
+    size_t size = 180 * x_max * 4;
+
+    if (!(gm_rx_ = (float *) malloc(size))) {
+        ee("failed to allocate %zu bytes\n", size);
+        return;
+    }
+
+    if (!(gm_ry_ = (float *) malloc(size))) {
+        ee("failed to allocate %zu bytes\n", size);
+        free(gm_rx_);
+        gm_rx_ = NULL;
+        return;
+    }
+
+    uint32_t i = 0;
+
+    for (uint16_t a = 0; a < 180; ++a) {
+        for (uint16_t r = 0; r < x_max; ++r) {
+            gm_rx_[i] = r * gm_cos_[a];
+            gm_ry_[i] = r * gm_sin_[a];
+            i++;
+        }
+    }
+
+    gm_max_x_ = x_max;
+
+    ii("math init ok\n");
 }
