@@ -22,9 +22,18 @@
 #include <libar/playground.h>
 #endif
 
-static struct font *font_;
+static struct font *font0_;
+static struct font *font1_;
 static float x_;
 static float y_;
+
+//#define FRAME_BY_FRAME
+
+#ifdef FRAME_BY_FRAME
+#include <semaphore.h>
+
+static sem_t run_;
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,7 +44,11 @@ extern "C" {
 
 jnicall(int, open, JNIEnv *env, jclass class, jobject asset_manager)
 {
-	if (!(font_ = font_open("fonts/Shure-Tech-Mono-Nerd-Font-Complete.ttf", 128,
+	if (!(font0_ = font_open("fonts/Shure-Tech-Mono-Nerd-Font-Complete.ttf", 64,
+	  AAssetManager_fromJava(env, asset_manager))))
+		return -1;
+
+	if (!(font1_ = font_open("fonts/Shure-Tech-Mono-Nerd-Font-Complete.ttf", 128,
 	  AAssetManager_fromJava(env, asset_manager))))
 		return -1;
 
@@ -44,11 +57,19 @@ jnicall(int, open, JNIEnv *env, jclass class, jobject asset_manager)
 #include <libar/playground.h>
 #endif
 
+#ifdef FRAME_BY_FRAME
+	sem_init(&run_, 0, 0);
+#endif
+
 	return bg_open();
 }
 
 jnicall(void, render, JNIEnv *env, jclass class)
 {
+#ifdef FRAME_BY_FRAME
+	sem_wait(&run_);
+#endif
+
 	bg_render(0);
 
 #ifdef HAVE_LIBAR
@@ -77,7 +98,8 @@ jnicall(void, rotate, JNIEnv *env, jclass class, int r)
 
 jnicall(void, close, JNIEnv *env, jclass class)
 {
-	font_close(&font_);
+	font_close(&font0_);
+	font_close(&font1_);
 	bg_close();
 }
 
@@ -91,10 +113,20 @@ jnicall(void, resume, JNIEnv *env, jclass class, jobject ctx, jobject act)
 
 jnicall(void, input, JNIEnv *env, jclass class, float x, float y)
 {
-	ii("touch at { %f, %f }", x, y);
+	dd("touch at { %f, %f }", x, y);
 #ifdef HAVE_LIBAR
 	touch_x_ = x;
 	touch_y_ = y;
+#endif
+	tr_touch(x, y);
+
+#ifdef FRAME_BY_FRAME
+	int val = 1; /* to skip error checking */
+
+	sem_getvalue(&run_, &val);
+
+	if (!val)
+		sem_post(&run_);
 #endif
 }
 
