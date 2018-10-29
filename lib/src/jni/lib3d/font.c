@@ -164,7 +164,7 @@ static void prepare_text(struct font *font, struct text *text)
 
 	w = text_width(font, text->str, text->len);
 
-	if (w < font->size) {
+	if (w < 1) {
 		text->state = TEXT_DISPLAYED; /* init again */
 		return;
 	}
