@@ -88,21 +88,21 @@ float gm_line_angle(const union gm_line *l, uint8_t perp);
 #define radians(angle) (angle) * M_PI / 180
 #define degrees(angle) (angle) * 180 / M_PI
 
-/* arbitrary radius and angle (radians) */
+/* arbitrary radius and angle */
 
-#define gm_circle_x(center_x, radius, angle)\
-  (center_x) + (radius) * cos(angle)
+#define gm_circle_x(center_x, radius, radians)\
+  (center_x) + (radius) * cos(radians)
 
-#define gm_circle_y(center_y, radius, angle)\
-  (center_y) + (radius) * sin(angle)
+#define gm_circle_y(center_y, radius, radians)\
+  (center_y) + (radius) * sin(radians)
 
 /* pre-multiplied radius and angle */
 
-#define gm_circle_rx(center_x, radius, angle)\
-    (center_x) + gm_rx_[radius + angle * gm_max_x_]
+#define gm_circle_rx(center_x, radius, degrees)\
+    (center_x) + gm_rx_[radius + degrees * gm_max_x_]
 
-#define gm_circle_ry(center_y, radius, angle)\
-    (center_y) + gm_ry_[radius + angle * gm_max_x_]
+#define gm_circle_ry(center_y, radius, degrees)\
+    (center_y) + gm_ry_[radius + degrees * gm_max_x_]
 
 extern float gm_cos_[360];
 extern float gm_sin_[360];
@@ -110,7 +110,8 @@ extern float *gm_rx_;
 extern float *gm_ry_;
 extern uint16_t gm_max_x_;
 
-void init_gm(uint16_t x_max);
+void gm_open(uint16_t x_max);
+void gm_close(void);
 
 #define gm_norm_x(x, w) (x) / ((w) * .5) - 1.
 #define gm_norm_y(y, h) 1. - (y) / ((h) * .5)

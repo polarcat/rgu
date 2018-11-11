@@ -6,6 +6,9 @@
  */
 
 #include <stdlib.h>
+
+#define TAG "math"
+
 #include <utils/log.h>
 
 #include "gm.h"
@@ -353,14 +356,14 @@ float *gm_rx_ = NULL;
 float *gm_ry_ = NULL;
 uint16_t gm_max_x_ = 0;
 
-void init_gm(uint16_t x_max)
+void gm_open(uint16_t x_max)
 {
     for (uint16_t a = 0; a < 360; ++a) {
         gm_cos_[a] = cos(radians(a));
         gm_sin_[a] = sin(radians(a));
     }
 
-    size_t size = 180 * x_max * 4;
+    size_t size = 360 * x_max * sizeof(float);
 
     if (!(gm_rx_ = (float *) malloc(size))) {
         ee("failed to allocate %zu bytes\n", size);
@@ -376,7 +379,7 @@ void init_gm(uint16_t x_max)
 
     uint32_t i = 0;
 
-    for (uint16_t a = 0; a < 180; ++a) {
+    for (uint16_t a = 0; a < 360; ++a) {
         for (uint16_t r = 0; r < x_max; ++r) {
             gm_rx_[i] = r * gm_cos_[a];
             gm_ry_[i] = r * gm_sin_[a];
@@ -386,5 +389,11 @@ void init_gm(uint16_t x_max)
 
     gm_max_x_ = x_max;
 
-    ii("math init ok\n");
+    ii("init ok, %zu bytes allocated for pre-multiplied values\n", size);
+}
+
+void gm_close(void)
+{
+	free(gm_rx_);
+	free(gm_ry_);
 }
