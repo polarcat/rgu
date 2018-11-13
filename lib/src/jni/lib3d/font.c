@@ -43,7 +43,7 @@ struct bitmap {
 	uint16_t w;
 };
 
-#define TEXT_QUEUE_SIZE 4
+#define TEXT_QUEUE_SIZE 2
 
 struct text {
 	uint8_t state;
@@ -76,8 +76,9 @@ struct font {
 	sem_t prepare;
 
 	pthread_mutex_t text_lock;
-	struct text text[TEXT_QUEUE_SIZE];
-	struct text *text_end;
+	struct text text_head[TEXT_QUEUE_SIZE];
+	struct text *text_tail;
+	struct text text;
 
 #ifdef ANDROID
 	void *asset;
@@ -95,6 +96,16 @@ static const float uvs_[] = {
         1, 0,
         1, 1,
 };
+
+static void sem_resume(struct font *font)
+{
+	int val = 1; /* to skip error checking */
+
+	sem_getvalue(&font->prepare, &val);
+
+	if (!val)
+		sem_post(&font->prepare);
+}
 
 #define spacing(glyph_width, size) ((uint8_t) (glyph_width + size / 10))
 
@@ -203,17 +214,19 @@ static void *thread_work(void *arg)
 
 	while (1) {
 		found = 0;
-		text_cur = font->text;
 		sem_wait(&font->prepare);
 
 		pthread_mutex_lock(&font->text_lock);
+		text_cur = font->text_head;
 
 		do {
 			if (text_cur->state == TEXT_PREPARE) {
-				found = 1;
+				found = 1; /* unlock and prepare ... */
 				break;
 			}
-		} while (++text_cur < font->text_end);
+
+			text_cur++;
+		} while (text_cur < font->text_tail);
 
 		pthread_mutex_unlock(&font->text_lock);
 
@@ -244,8 +257,8 @@ void font_close(struct font **ptr)
 	glDeleteTextures(1, &font->tex);
 
 	for (uint8_t i = 0; i < TEXT_QUEUE_SIZE; ++i) {
-		free(font->text[i].bitmap.data);
-		free(font->text[i].str);
+		free(font->text_head[i].bitmap.data);
+		free(font->text_head[i].str);
 	}
 
 	free(font);
@@ -355,7 +368,7 @@ struct font *font_open(const char *path, float size, void *assets)
 	ii("font %s ok: scale %f | ascent %d | descent %d\n", path,
 	  font->scale, font->ascent, font->descent);
 
-	font->text_end = font->text + TEXT_QUEUE_SIZE;
+	font->text_tail = font->text_head + TEXT_QUEUE_SIZE;
 
 	sem_init(&font->prepare, 0, 0);
 	pthread_create(&font->thread, NULL, thread_work, font);
@@ -374,17 +387,16 @@ void font_render(struct font *font, const char *str, uint16_t len,
 	float norm_w;
 	float norm_h;
 	GLint wh[4];
-	struct text *text_ptr = font->text;
-	struct text *text_cur = NULL;
+	struct text *text_ptr = font->text_head;
+	struct text *text_cur = &font->text;
 
 	pthread_mutex_lock(&font->text_lock);
 
 	do {
 		if (text_ptr->state == TEXT_PREPARED) {
-			if (!text_cur) {
-				text_ptr->state = TEXT_DISPLAY;
-				text_cur = text_ptr;
-			}
+			/* text string itself is not used for rendering */
+			memcpy(text_cur, text_ptr, sizeof(*text_cur));
+			text_ptr->state = TEXT_DISPLAYED;
 		} else if (text_ptr->state == TEXT_DISPLAYED) {
 			if (text_ptr->len == len) {
 				memcpy(text_ptr->str, str, len);
@@ -400,19 +412,11 @@ void font_render(struct font *font, const char *str, uint16_t len,
 			text_ptr->bg = bg;
 			text_ptr->state = TEXT_PREPARE;
 		}
-	} while (++text_ptr < font->text_end);
+	} while (++text_ptr < font->text_tail);
 
 	pthread_mutex_unlock(&font->text_lock);
 
-	int val = 1; /* to skip error checking */
-
-	sem_getvalue(&font->prepare, &val);
-
-	if (!val)
-		sem_post(&font->prepare);
-
-	if (!text_cur)
-		return;
+	sem_resume(font);
 
 	glGetIntegerv(GL_VIEWPORT, wh);
 
@@ -471,6 +475,4 @@ void font_render(struct font *font, const char *str, uint16_t len,
 	glDisableVertexAttribArray(font->a_pos);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
-
-	text_cur->state = TEXT_DISPLAYED;
 }
