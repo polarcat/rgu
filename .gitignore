@@ -1,4 +1,5 @@
-lib/src/jni/libar
+lib/src/jni/libcv
+lib/src/jni/algo
 build
 tags
 .gradle
