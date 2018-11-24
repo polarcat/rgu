@@ -104,7 +104,7 @@ int bg_open(void)
 #else /* perceived luminance */
 				"float y=.299*rgb.r+.587*rgb.g+.114*rgb.b;\n"
 #endif
-				"gl_FragColor=vec4(y,y,y,1);\n"
+				"gl_FragColor=vec4(y,y,y,1)*1.5;\n"
 			"}\n"
 		"}\0";
 
