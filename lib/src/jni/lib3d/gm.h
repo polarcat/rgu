@@ -20,6 +20,15 @@ union gm_line {
 	};
 };
 
+union gm_vec2 {
+	float data[3];
+	struct {
+		float x;
+		float y;
+		float len;
+	};
+};
+
 union gm_vec3 {
 	float data[4];
 	struct {
@@ -59,6 +68,12 @@ void gm_mat4_identity(float m[16]);
 void gm_mat4_mulmm(float r[16], const float m0[16], const float m1[16]);
 void gm_mat4_mulmv(float r[4], const float m[16], const float v[4]);
 void gm_mat4_invert(float r[16], const float m[16]);
+
+/* vector2 ops */
+
+void gm_vec2_init(union gm_vec2 *v, const float v0[3], const float v1[3]);
+float gm_vec2_crossprod(const union gm_vec2 *v0, const union gm_vec2 *v1);
+float gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1);
 
 /* vector3 ops */
 

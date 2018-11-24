@@ -183,6 +183,28 @@ void gm_mat4_invert(float r[16], const float m[16])
 	}
 }
 
+/* vector2 ops */
+
+void gm_vec2_init(union gm_vec2 *v, const float v0[2], const float v1[2])
+{
+	const union gm_vec2 *vec0 = (const union gm_vec2 *) v0;
+	const union gm_vec2 *vec1 = (const union gm_vec2 *) v1;
+
+	v->x = vec1->x - vec0->x;
+	v->y = vec1->y - vec0->y;
+	v->len = sqrt(v->x * v->x + v->y * v->y);
+}
+
+float gm_vec2_crossprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
+{
+	return (v0->x * v1->y - v0->y * v1->x) / (v0->len * v1->len);
+}
+
+float gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
+{
+	return (v0->x * v1->x + v0->y * v1->y) / (v0->len * v1->len);
+}
+
 /* vector3 ops */
 
 /**
