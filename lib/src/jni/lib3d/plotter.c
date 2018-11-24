@@ -291,7 +291,7 @@ void plotter_render(void)
 		draw_lines2d(lines_front_);
 
 	font_render(font1_, text_front_->str, text_front_->len,
-	  gm_norm_x(0, w_), gm_norm_y(0, h_), 0xffffffff, 0x801010ff);
+	  gm_norm_x(0, w_), gm_norm_y(0, h_), 0xffffffff, 0x404040ff);
 
 	unlock_points();
 

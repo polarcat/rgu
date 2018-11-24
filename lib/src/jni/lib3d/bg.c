@@ -28,21 +28,21 @@ static const uint8_t indices_[] = {
 	2, 3, 0,
 };
 
-static const float vertnorm_[] = {
+static const float verts_[] = {
 	-1, 1,
 	1, 1,
 	1, -1,
 	-1, -1,
 };
 
-static const float vertflip_[] = {
+static const float offscr_verts_[] = {
 	-1, -1,
 	1, -1,
 	1, 1,
 	-1, 1,
 };
 
-static const float *vertices_ = vertnorm_;
+static const float *vertices_ = verts_;
 
 static const float coords_[] = {
 	0, 1,
@@ -180,9 +180,9 @@ void bg_render_offscreen(uint8_t *buf, uint16_t w, uint16_t h, uint8_t grey)
 
 	glViewport(0, 0, w, h);
 
-	vertices_ = vertflip_;
+	vertices_ = offscr_verts_;
 	bg_render(grey);
-	vertices_ = vertnorm_;
+	vertices_ = verts_;
 
 	glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buf);
 	glBindTexture(GL_TEXTURE_2D, 0);
