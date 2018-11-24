@@ -24,6 +24,13 @@
 #include "draw.h"
 #include "plotter.h"
 
+//#define DEBUG_VIEW
+
+#ifdef DEBUG_VIEW
+#include "pip.h"
+static struct pip_prog debug_view_;
+#endif
+
 #ifdef HAVE_ALGO
 void process_image(uint8_t *buf, uint16_t w, uint16_t h);
 #else
@@ -135,11 +142,18 @@ void cv_open(struct font *f0, struct font *f1)
         sem_init(&run_, 0, 0);
         pthread_create(&thread_, NULL, thread_work, NULL);
 
+#ifdef DEBUG_VIEW
+	pip_init(&debug_view_);
+#endif
+
 	ii("init ok\n");
 }
 
 void cv_close(void)
 {
+#ifdef DEBUG_VIEW
+	pip_close(&debug_view_);
+#endif
 	gm_close();
 	plotter_close();
 	close_ = 1; /* tell the worker thread to release resource and exit */
@@ -161,6 +175,10 @@ void cv_render(void)
 	unlock_job_state();
 
 	plotter_render();
+
+#ifdef DEBUG_VIEW
+	pip_render(&debug_view_, img_, img_w_, img_h_);
+#endif
 
 	int val = 1; /* to skip error checking */
 

@@ -10,6 +10,7 @@ lib3d/gm.c \
 lib3d/bg.c \
 lib3d/font.c \
 lib3d/draw.c \
+lib3d/pip.c \
 lib3d/cv.c \
 lib3d/plotter.c \
 utils/image.c \
