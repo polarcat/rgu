@@ -19,6 +19,8 @@
 
 #define COLOR_ATTR_SIZE (3 * 2)
 
+static uint8_t async_;
+
 static uint16_t w_;
 static uint16_t h_;
 static uint32_t max_points_;
@@ -62,6 +64,9 @@ static struct text *text_back_;
 
 void plotter_close(void)
 {
+	if (!async_)
+		return;
+
 	points_0_.count = 0;
 	free(points_0_.coords);
 	free(points_0_.colors);
@@ -189,17 +194,9 @@ err:
 	return 0;
 }
 
-int plotter_open(struct font *f0, struct font *f1, uint16_t w, uint16_t h)
+int plotter_open(struct font *f0, struct font *f1, uint16_t w, uint16_t h, uint8_t async)
 {
-	lock_points();
-
-	plotter_close();
-
-	if (!allocate_points(w, h))
-		goto err;
-
-	if (!allocate_lines(w, h))
-		goto err;
+	async_ = async;
 
 	w_ = w;
 	h_ = h;
@@ -207,13 +204,26 @@ int plotter_open(struct font *f0, struct font *f1, uint16_t w, uint16_t h)
 	font0_ = f0;
 	font1_ = f1;
 
-	text_front_ = &text_0_;
-	text_front_->len = 0;
+	if (async_) {
+		lock_points();
 
-	text_back_ = &text_1_;
-	text_back_->len = 0;
+		plotter_close();
 
-	unlock_points();
+		if (!allocate_points(w, h))
+			goto err;
+
+		if (!allocate_lines(w, h))
+			goto err;
+
+		text_front_ = &text_0_;
+		text_front_->len = 0;
+
+		text_back_ = &text_1_;
+		text_back_->len = 0;
+
+		unlock_points();
+	}
+
 	return 0;
 
 err:
@@ -264,6 +274,9 @@ static void swap_lines(void)
 
 void plotter_swap(void)
 {
+	if (!async_)
+		return;
+
 	lock_points();
 
 	swap_points();
@@ -282,6 +295,9 @@ void plotter_swap(void)
 
 void plotter_render(void)
 {
+	if (!async_)
+		return;
+
 	lock_points();
 
 	if (points_front_->count)
@@ -304,6 +320,21 @@ void plotter_render(void)
 void plot_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
   float r, float g, float b)
 {
+	if (!async_) {
+		float coords[4] = { gm_norm_x(x0, w_), gm_norm_y(y0, h_),
+			gm_norm_x(x1, w_), gm_norm_y(y1, h_),
+		};
+		float colors[6] = { r, g, b, r, g, b, };
+		struct lines line = {
+			.count = 1,
+			.coords = coords,
+			.colors = colors,
+		};
+
+		draw_lines2d(&line);
+		return;
+	}
+
 	lock_points();
 
 	if (lines_back_->count >= max_lines_) {
@@ -335,6 +366,21 @@ void plot_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
 
 void plot_point(uint16_t x, uint16_t y, float r, float g, float b, uint8_t size)
 {
+	if (!async_) {
+		float coords[2] = { gm_norm_x(x, w_), gm_norm_y(y, h_), };
+		float colors[3] = { r, g, b, };
+		uint8_t sizes[1] = { size, };
+		struct points point = {
+			.count = 1,
+			.coords = coords,
+			.colors = colors,
+			.sizes = sizes,
+		};
+
+		draw_points2d(&point);
+		return;
+	}
+
 	lock_points();
 
 	if (points_back_->count >= max_points_) {
@@ -358,16 +404,6 @@ void plot_point(uint16_t x, uint16_t y, float r, float g, float b, uint8_t size)
 	unlock_points();
 }
 
-/* nb: not thread safe */
-
-static char str_[1024];
-
-char *plot_get_text_buffer(size_t *len)
-{
-	*len = sizeof(str_);
-	return str_;
-}
-
 void plot_text0(uint16_t x, uint16_t y, const char *str, size_t len,
   uint32_t fg, uint32_t bg)
 {
@@ -386,6 +422,11 @@ void plot_text1(uint16_t x, uint16_t y, const char *str, size_t len,
 
 void plot_text(const char *str, uint16_t len)
 {
+	if (!async_) {
+		plot_text1(0, 0, str, len, 0xffffffff, 0x404040ff);
+		return;
+	}
+
 	lock_points();
 
 	len < MAX_STRLEN ? (text_back_->len = len) : (text_back_->len = MAX_STRLEN);

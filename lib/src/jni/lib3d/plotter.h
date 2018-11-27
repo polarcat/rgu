@@ -13,7 +13,8 @@
 #include <utils/time.h>
 
 void plotter_close(void);
-int plotter_open(struct font *f0, struct font *f1, uint16_t w, uint16_t h);
+int plotter_open(struct font *f0, struct font *f1, uint16_t w, uint16_t h,
+  uint8_t async);
 void plotter_swap(void);
 void plotter_render(void);
 
@@ -30,22 +31,6 @@ void plot_text(const char *str, uint16_t len);
 char *plot_get_text_buffer(size_t *len);
 
 float plot_getfps(void);
-
-#define plot_str0(x, y, bg, fmt, arg...) {\
-	size_t len = 0;\
-	char *str = plot_get_text_buffer(&len);\
-	uint8_t pos = snprintf(str, len, fmt, ##arg);\
-	str[pos] = '\0';\
-	plot_text0(x, y, str, pos, 0xffffffff, bg);\
-}
-
-#define plot_str1(x, y, bg, fmt, arg...) {\
-	size_t len = 0;\
-	char *str = plot_get_text_buffer(&len);\
-	uint8_t pos = snprintf(str, len, fmt, ##arg);\
-	str[pos] = '\0';\
-	plot_text1(x, y, str, pos, 0xffffffff, bg);\
-}
 
 #define MAX_STRLEN 1024
 

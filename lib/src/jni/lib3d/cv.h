@@ -11,7 +11,12 @@
 
 #include "font.h"
 
-void cv_open(struct font *f0, struct font *f1);
+enum {
+	CV_BLOCK,
+	CV_ASYNC,
+};
+
+void cv_open(struct font *f0, struct font *f1, uint8_t async);
 void cv_close(void);
 void cv_render(void);
 void cv_resize(uint16_t w, uint16_t h);

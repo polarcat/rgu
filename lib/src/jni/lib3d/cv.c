@@ -71,24 +71,30 @@ static uint16_t frames_;
 static uint16_t touch_x_;
 static uint16_t touch_y_;
 
+static uint8_t async_;
+
 static sem_t run_;
+
+static void do_process_image(void)
+{
+	lock_resize();
+
+	if (resize_) {
+		resize_ = 0;
+		free(img_);
+		img_ = (uint8_t *) malloc(img_w_ * img_h_ * 4); /* rgba */
+	}
+
+	unlock_resize();
+
+	process_image(img_, img_w_, img_h_);
+}
 
 static void *thread_work(void *arg)
 {
         while (!close_) {
                 sem_wait(&run_);
-
-		lock_resize();
-
-		if (resize_) {
-			resize_ = 0;
-			free(img_);
-			img_ = (uint8_t *) malloc(img_w_ * img_h_ * 4); /* rgba */
-		}
-
-		unlock_resize();
-
-		process_image(img_, img_w_, img_h_);
+		do_process_image();
 		plotter_swap();
 
 		lock_job_state();
@@ -123,7 +129,7 @@ void cv_touch(uint16_t x, uint16_t y)
 	unlock_touch();
 }
 
-void cv_open(struct font *f0, struct font *f1)
+void cv_open(struct font *f0, struct font *f1, uint8_t async)
 {
 	GLint wh[4];
 
@@ -134,13 +140,16 @@ void cv_open(struct font *f0, struct font *f1)
 
 	font0_ = f0;
 	font1_ = f1;
+	async_ = async;
 
 	draw_init();
 	gm_open(img_w_ / 4);
-	plotter_open(f0, f1, img_w_, img_h_);
+	plotter_open(f0, f1, img_w_, img_h_, async);
 
-        sem_init(&run_, 0, 0);
-        pthread_create(&thread_, NULL, thread_work, NULL);
+	if (async_) {
+	        sem_init(&run_, 0, 0);
+	        pthread_create(&thread_, NULL, thread_work, NULL);
+	}
 
 #ifdef DEBUG_VIEW
 	pip_init(&debug_view_);
@@ -155,8 +164,11 @@ void cv_close(void)
 	pip_close(&debug_view_);
 #endif
 	gm_close();
-	plotter_close();
-	close_ = 1; /* tell the worker thread to release resource and exit */
+
+	if (async_) {
+		plotter_close();
+		close_ = 1; /* tell the worker thread to release resource and exit */
+	}
 }
 
 /*
@@ -174,18 +186,25 @@ void cv_render(void)
 
 	unlock_job_state();
 
-	plotter_render();
-
 #ifdef DEBUG_VIEW
 	pip_render(&debug_view_, img_, img_w_, img_h_);
 #endif
 
-	int val = 1; /* to skip error checking */
+	if (!async_) {
+		do_process_image();
+		lock_job_state();
+		job_done_ = 1;
+		unlock_job_state();
+	} else {
+		plotter_render();
 
-	sem_getvalue(&run_, &val);
+		int val = 1; /* to skip error checking */
 
-	if (!val)
-		sem_post(&run_);
+		sem_getvalue(&run_, &val);
+
+		if (!val)
+			sem_post(&run_);
+	}
 
 	touch_x_ = 0;
 	touch_y_ = 0;

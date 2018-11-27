@@ -47,7 +47,7 @@ jnicall(int, open, JNIEnv *env, jclass class, jobject asset_manager)
 	  AAssetManager_fromJava(env, asset_manager))))
 		return -1;
 
-	cv_open(font0_, font1_);
+	cv_open(font0_, font1_, CV_BLOCK);
 
 	sem_init(&run_, 0, 0);
 
