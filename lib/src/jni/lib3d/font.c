@@ -380,51 +380,17 @@ err:
 	return NULL;
 }
 
-void font_render(struct font *font, const char *str, uint16_t len,
-  float x, float y, uint32_t fg, uint32_t bg)
+static void render_text(struct font *font)
 {
 	float verts[8];
-	float norm_w;
-	float norm_h;
+	float x = font->text.x;
+	float y = font->text.y;
 	GLint wh[4];
-	struct text *text_ptr = font->text_head;
-	struct text *text_cur = &font->text;
-
-	pthread_mutex_lock(&font->text_lock);
-
-	do {
-		if (text_ptr->state == TEXT_PREPARED) {
-			/* text string itself is not used for rendering */
-			memcpy(text_cur, text_ptr, sizeof(*text_cur));
-			text_ptr->state = TEXT_DISPLAYED;
-		} else if (text_ptr->state == TEXT_DISPLAYED) {
-			if (text_ptr->len == len) {
-				memcpy(text_ptr->str, str, len);
-			} else {
-				free(text_ptr->str);
-				text_ptr->str = strdup(str);
-			}
-
-			text_ptr->x = x;
-			text_ptr->y = y;
-			text_ptr->len = len;
-			text_ptr->fg = fg;
-			text_ptr->bg = bg;
-			text_ptr->state = TEXT_PREPARE;
-		}
-	} while (++text_ptr < font->text_tail);
-
-	pthread_mutex_unlock(&font->text_lock);
-
-	sem_resume(font);
 
 	glGetIntegerv(GL_VIEWPORT, wh);
 
-	norm_w = (float) text_cur->bitmap.w / wh[2];
-	norm_h = (float) font->size / wh[3];
-
-	x = text_cur->x;
-	y = text_cur->y;
+	float norm_w = (float) font->text.bitmap.w / wh[2];
+	float norm_h = (float) font->size / wh[3];
 
 	verts[0] = x;
 	verts[1] = y - norm_h;
@@ -457,8 +423,8 @@ void font_render(struct font *font, const char *str, uint16_t len,
 #endif
 
 	glBindTexture(GL_TEXTURE_2D, font->tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, text_cur->bitmap.w, font->size,
-	  0, GL_RGBA, GL_UNSIGNED_BYTE, text_cur->bitmap.data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, font->text.bitmap.w, font->size,
+	  0, GL_RGBA, GL_UNSIGNED_BYTE, font->text.bitmap.data);
 
 	glUseProgram(font->prog);
 
@@ -475,4 +441,55 @@ void font_render(struct font *font, const char *str, uint16_t len,
 	glDisableVertexAttribArray(font->a_pos);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void font_render_async(struct font *font, const char *str, uint16_t len,
+  float x, float y, uint32_t fg, uint32_t bg)
+{
+	struct text *text_ptr = font->text_head;
+	struct text *text_cur = &font->text;
+
+	pthread_mutex_lock(&font->text_lock);
+
+	do {
+		if (text_ptr->state == TEXT_PREPARED) {
+			/* text string itself is not used for rendering */
+			memcpy(text_cur, text_ptr, sizeof(*text_cur));
+			text_ptr->state = TEXT_DISPLAYED;
+		} else if (text_ptr->state == TEXT_DISPLAYED) {
+			if (text_ptr->len == len) {
+				memcpy(text_ptr->str, str, len);
+			} else {
+				free(text_ptr->str);
+				text_ptr->str = strdup(str);
+			}
+
+			text_ptr->x = x;
+			text_ptr->y = y;
+			text_ptr->len = len;
+			text_ptr->fg = fg;
+			text_ptr->bg = bg;
+			text_ptr->state = TEXT_PREPARE;
+		}
+	} while (++text_ptr < font->text_tail);
+
+	pthread_mutex_unlock(&font->text_lock);
+
+	sem_resume(font);
+	render_text(font);
+}
+
+void font_render(struct font *font, const char *str, uint16_t len,
+  float x, float y, uint32_t fg, uint32_t bg)
+{
+	font->text.x = x;
+	font->text.y = y;
+	font->text.str = (char *) str;
+	font->text.len = len;
+	font->text.fg = fg;
+	font->text.bg = bg;
+	font->text.state = TEXT_PREPARE;
+
+	prepare_text(font, &font->text);
+	render_text(font);
 }

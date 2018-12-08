@@ -13,5 +13,7 @@ struct font;
 
 void font_close(struct font **font);
 struct font *font_open(const char *path, float size, void *assets);
+void font_render_async(struct font *font, const char *str, uint16_t len,
+  float x, float y, uint32_t fg, uint32_t bg);
 void font_render(struct font *font, const char *str, uint16_t len,
   float x, float y, uint32_t fg, uint32_t bg);

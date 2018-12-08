@@ -408,7 +408,12 @@ void plot_text0(uint16_t x, uint16_t y, const char *str, size_t len,
   uint32_t fg, uint32_t bg)
 {
 	gl_disable_features();
-	font_render(font0_, str, len, gm_norm_x(x, w_), gm_norm_y(y, h_), fg, bg);
+
+	if (async_)
+		font_render_async(font0_, str, len, gm_norm_x(x, w_), gm_norm_y(y, h_), fg, bg);
+	else
+		font_render(font0_, str, len, gm_norm_x(x, w_), gm_norm_y(y, h_), fg, bg);
+
 	gl_enable_features();
 }
 
@@ -416,7 +421,12 @@ void plot_text1(uint16_t x, uint16_t y, const char *str, size_t len,
   uint32_t fg, uint32_t bg)
 {
 	gl_disable_features();
-	font_render(font1_, str, len, gm_norm_x(x, w_), gm_norm_y(y, h_), fg, bg);
+
+	if (async_)
+		font_render_async(font1_, str, len, gm_norm_x(x, w_), gm_norm_y(y, h_), fg, bg);
+	else
+		font_render(font1_, str, len, gm_norm_x(x, w_), gm_norm_y(y, h_), fg, bg);
+
 	gl_enable_features();
 }
 
