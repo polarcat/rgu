@@ -74,6 +74,9 @@ void gm_mat4_invert(float r[16], const float m[16]);
 void gm_vec2_init(union gm_vec2 *v, const float v0[3], const float v1[3]);
 float gm_vec2_crossprod(const union gm_vec2 *v0, const union gm_vec2 *v1);
 float gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1);
+float gm_vec2_angle(const union gm_vec2 *v0,
+  const union gm_vec2 *v1);
+void gm_vec2_normalize(union gm_vec2 *v);
 
 /* vector3 ops */
 

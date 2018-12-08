@@ -205,6 +205,19 @@ float gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
 	return (v0->x * v1->x + v0->y * v1->y) / (v0->len * v1->len);
 }
 
+float gm_vec2_angle(const union gm_vec2 *v0,
+  const union gm_vec2 *v1)
+{
+	return acos(gm_vec2_dotprod(v0, v1) / (v0->len * v1->len));
+}
+
+void gm_vec2_normalize(union gm_vec2 *v)
+{
+	v->x = v->x / v->len;
+	v->y = v->y / v->len;
+	v->len = 1;
+}
+
 /* vector3 ops */
 
 /**
