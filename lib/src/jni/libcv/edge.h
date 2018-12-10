@@ -9,7 +9,7 @@
 
 static uint8_t edge_[4];
 
-#define DEBUG_EDGE
+//#define DEBUG_EDGE
 
 #ifndef DEBUG_EDGE
 #define store_edge() ;
@@ -56,7 +56,7 @@ static inline void read_edge(uint8_t edge[4])
 #define FALL_FOOT_WIDTH 2
 #define FALL_ADVANCE (FALL_FOOT_WIDTH + FALL_FOOT_WIDTH)
 
-static inline uint8_t falling_edge(uint16_t *x, uint16_t y)
+static inline uint8_t falling_edge(uint16_t *x, uint16_t y, uint8_t *c)
 {
 	uint8_t c0 = byte(*x, y);
 	uint8_t c1 = byte(*x + 1, y);
@@ -64,6 +64,7 @@ static inline uint8_t falling_edge(uint16_t *x, uint16_t y)
 	uint8_t c3 = byte(*x + FALL_FOOT_WIDTH + 1, y);
 
 	*x += FALL_ADVANCE;
+	*c = c3;
 	store_edge();
 
 	if (fall_condition())
@@ -200,7 +201,7 @@ static inline uint8_t falling_edge_down(uint16_t x, uint16_t y)
 	(c2 - c1) > MIN_RISE_SLOPE
 #endif
 
-static inline uint8_t rising_edge(uint16_t *x, uint16_t y)
+static inline uint8_t rising_edge(uint16_t *x, uint16_t y, uint8_t *c)
 {
 	uint8_t c0 = byte(*x, y);
 	uint8_t c1 = byte(*x + 1, y);
@@ -208,6 +209,7 @@ static inline uint8_t rising_edge(uint16_t *x, uint16_t y)
 	uint8_t c3 = byte(*x + RISE_FOOT_WIDTH + 1, y);
 
 	*x += RISE_ADVANCE;
+	*c = c3;
 	store_edge();
 
 	if (rise_condition())
@@ -317,4 +319,144 @@ static inline uint8_t rising_edge_down(uint16_t x, uint16_t y)
 		return 1;
 
 	return 0;
+}
+
+/* fine edge detection */
+
+#define FOOT_SIZE 2
+
+static inline uint16_t fall_left(uint16_t x, uint16_t y, uint8_t c, uint16_t l)
+{
+	uint8_t same = 0;
+
+	for (uint16_t xx = x; xx > l; --xx) {
+		if (byte(xx, y) >= c)
+			continue;
+		else
+			same++;
+
+		if (same >= FOOT_SIZE)
+			return xx;
+	}
+
+	return x;
+}
+
+static inline uint16_t fall_right(uint16_t x, uint16_t y, uint8_t c, uint16_t l)
+{
+	uint8_t same = 0;
+
+	for (uint16_t xx = x; xx < l; ++xx) {
+		if (byte(xx, y) >= c)
+			continue;
+		else
+			same++;
+
+		if (same >= FOOT_SIZE)
+			return xx;
+	}
+
+	return x;
+}
+
+static inline uint16_t fall_up(uint16_t x, uint16_t y, uint8_t c, uint16_t l)
+{
+	uint8_t same = 0;
+
+	for (uint16_t yy = y; yy > l; --yy) {
+		if (byte(x, yy) >= c)
+			continue;
+		else
+			same++;
+
+		if (same >= FOOT_SIZE)
+			return yy;
+	}
+
+	return y;
+}
+
+static inline uint16_t fall_down(uint16_t x, uint16_t y, uint8_t c, uint16_t l)
+{
+	uint8_t same = 0;
+
+	for (uint16_t yy = y; yy < l; ++yy) {
+		if (byte(x, yy) >= c)
+			continue;
+		else
+			same++;
+
+		if (same >= FOOT_SIZE)
+			return yy;
+	}
+
+	return y;
+}
+
+static inline uint16_t rise_left(uint16_t x, uint16_t y, uint8_t c, uint16_t l)
+{
+	uint8_t same = 0;
+
+	for (uint16_t xx = x; xx > l; --xx) {
+		if (byte(xx, y) <= c)
+			continue;
+		else
+			same++;
+
+		if (same >= FOOT_SIZE)
+			return xx;
+	}
+
+	return x;
+}
+
+static inline uint16_t rise_right(uint16_t x, uint16_t y, uint8_t c, uint16_t l)
+{
+	uint8_t same = 0;
+
+	for (uint16_t xx = x; xx < l; ++xx) {
+		if (byte(xx, y) <= c)
+			continue;
+		else
+			same++;
+
+		if (same >= FOOT_SIZE)
+			return xx;
+	}
+
+	return x;
+}
+
+static inline uint16_t rise_up(uint16_t x, uint16_t y, uint8_t c, uint16_t l)
+{
+	uint8_t same = 0;
+
+	for (uint16_t yy = y; yy > l; --yy) {
+		if (byte(x, yy) <= c)
+			continue;
+		else
+			same++;
+
+		if (same >= FOOT_SIZE)
+			return yy;
+	}
+
+	return y;
+}
+
+static inline uint16_t rise_down(uint16_t x, uint16_t y, uint8_t c, uint16_t l)
+{
+	uint8_t same = 0;
+
+	for (uint16_t yy = y; yy < l; ++yy) {
+		if (byte(x, yy) <= c)
+			continue;
+		else
+			same++;
+
+		if (same >= 2)
+			return yy;
+	}
+
+	return y;
 }
