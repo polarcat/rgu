@@ -40,6 +40,9 @@ static inline void read_edge(uint8_t edge[4])
 	(c1 - c2) > MIN_FALL_SLOPE
 #endif
 
+#define fall_condition_param(c)\
+	((c0 - c1) >= -1 && (c2 - c3) >= -1 && (c1 - c2) > c)
+
 /*
  *
  * c0 -- c1
@@ -54,7 +57,7 @@ static inline void read_edge(uint8_t edge[4])
 
 #define MIN_FALL_SLOPE 2
 #define FALL_FOOT_WIDTH 2
-#define FALL_ADVANCE (FALL_FOOT_WIDTH + FALL_FOOT_WIDTH)
+#define FALL_ADVANCE 4
 
 static inline uint8_t falling_edge(uint16_t *x, uint16_t y, uint8_t *c)
 {
@@ -64,10 +67,10 @@ static inline uint8_t falling_edge(uint16_t *x, uint16_t y, uint8_t *c)
 	uint8_t c3 = byte(*x + FALL_FOOT_WIDTH + 1, y);
 
 	*x += FALL_ADVANCE;
-	*c = c3;
+	*c = (c0 + c1 + c2 + c3) >> 2;
 	store_edge();
 
-	if (fall_condition())
+	if (fall_condition_param(1))
 		return 1;
 
 	return 0;
@@ -187,7 +190,7 @@ static inline uint8_t falling_edge_down(uint16_t x, uint16_t y)
 
 #define MIN_RISE_SLOPE 2
 #define RISE_FOOT_WIDTH 2
-#define RISE_ADVANCE (RISE_FOOT_WIDTH + RISE_FOOT_WIDTH)
+#define RISE_ADVANCE 4
 
 #if 0
 #define rise_condition()\
@@ -201,6 +204,9 @@ static inline uint8_t falling_edge_down(uint16_t x, uint16_t y)
 	(c2 - c1) > MIN_RISE_SLOPE
 #endif
 
+#define rise_condition_param(c)\
+	((c1 - c0) >= -1 && (c3 - c2) >= -1 && (c2 - c1) > c)
+
 static inline uint8_t rising_edge(uint16_t *x, uint16_t y, uint8_t *c)
 {
 	uint8_t c0 = byte(*x, y);
@@ -209,7 +215,7 @@ static inline uint8_t rising_edge(uint16_t *x, uint16_t y, uint8_t *c)
 	uint8_t c3 = byte(*x + RISE_FOOT_WIDTH + 1, y);
 
 	*x += RISE_ADVANCE;
-	*c = c3;
+	*c = (c0 + c1 + c2 + c3) >> 2;
 	store_edge();
 
 	if (rise_condition())
