@@ -23,6 +23,9 @@ struct points {
 };
 
 void draw_init(void);
+void draw_point2d(float x, float y, float r, float g, float b, float size);
+void draw_line2d(float x0, float y0, float x1, float y1, float r, float g,
+  float b);
 void draw_points2d(struct points *points);
 void draw_points3d(struct points *points);
 void draw_lines2d(struct lines *lines);

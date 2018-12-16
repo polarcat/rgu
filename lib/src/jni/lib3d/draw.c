@@ -17,7 +17,45 @@ struct prog {
 	GLint a_pos;
 	GLint a_rgb;
 	GLint a_size;
+	GLint u_color;
+	GLint u_size;
 };
+
+static struct prog prog2ds_;
+
+static void init_prog_simple(struct prog *prog, const char *fsrc, const char *vsrc)
+{
+	if (!(prog->id = gl_make_prog(vsrc, fsrc))) {
+		ee("failed to create program\n");
+		return;
+	}
+
+	glUseProgram(prog->id);
+
+	prog->a_pos = glGetAttribLocation(prog->id, "a_pos");
+	prog->u_color = glGetUniformLocation(prog->id, "u_color");
+	prog->u_size = glGetUniformLocation(prog->id, "u_size");
+}
+
+static void init2ds(void)
+{
+	const char *fsrc =
+		"precision highp float;\n"
+		"uniform vec3 u_color;\n"
+		"void main() {\n"
+			"gl_FragColor=vec4(u_color,1);\n"
+		"}\0";
+
+	const char *vsrc =
+		"attribute vec2 a_pos;\n"
+		"uniform float u_size;\n"
+		"void main() {\n"
+			"gl_PointSize=u_size;\n"
+			"gl_Position=vec4(a_pos,0,1);\n"
+		"}\0";
+
+	init_prog_simple(&prog2ds_, fsrc, vsrc);
+}
 
 static struct prog prog2d_;
 static struct prog prog3d_;
@@ -84,10 +122,54 @@ static void init3d(void)
 
 void draw_init(void)
 {
+	init2ds();
 	init2d();
 	init3d();
 
 	ii("point init ok\n");
+}
+
+void draw_point2d(float x, float y, float r, float g, float b, float size)
+{
+	struct prog *prog = &prog2ds_;
+	float pos[2] = { x, y, };
+
+	gl_disable_features();
+
+	glUseProgram(prog->id);
+
+	glUniform3f(prog->u_color, r, g, b);
+	glUniform1f(prog->u_size, size);
+	glVertexAttribPointer(prog->a_pos, 2, GL_FLOAT, GL_FALSE, 0, pos);
+	glEnableVertexAttribArray(prog->a_pos);
+
+	glDrawArrays(GL_POINTS, 0, 1);
+
+	glDisableVertexAttribArray(prog->a_pos);
+
+	gl_enable_features();
+}
+
+void draw_line2d(float x0, float y0, float x1, float y1, float r, float g,
+  float b)
+{
+	struct prog *prog = &prog2ds_;
+	float pos[4] = { x0, y0, x1, y1, };
+
+	gl_disable_features();
+
+	glUseProgram(prog->id);
+
+	glUniform3f(prog->u_color, r, g, b);
+	glUniform1f(prog->u_size, 1);
+	glVertexAttribPointer(prog->a_pos, 2, GL_FLOAT, GL_FALSE, 0, pos);
+	glEnableVertexAttribArray(prog->a_pos);
+
+	glDrawArrays(GL_LINES, 0, 2);
+
+	glDisableVertexAttribArray(prog->a_pos);
+
+	gl_enable_features();
 }
 
 static inline void draw_points(struct points *points, struct prog *prog)
