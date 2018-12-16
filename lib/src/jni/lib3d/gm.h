@@ -60,7 +60,7 @@ union gm_plane3 {
 #define gm_scale_y(m) (m)[5]
 #define gm_scale_z(m) (m)[10]
 
-#define gm_pow2(a) fabs((a) * (a))
+#define gm_pow2(a) ((a) * (a))
 
 /* marix4 ops */
 
@@ -80,6 +80,7 @@ void gm_vec2_normalize(union gm_vec2 *v);
 
 /* vector3 ops */
 
+void gm_vec3_len(union gm_vec3 *v);
 void gm_vec3_init(union gm_vec3 *v, const float v0[3], const float v1[3]);
 void gm_vec3_crossprod(union gm_vec3 *v, const float v0[3],
   const float v1[3]);

@@ -220,6 +220,11 @@ void gm_vec2_normalize(union gm_vec2 *v)
 
 /* vector3 ops */
 
+void gm_vec3_len(union gm_vec3 *v)
+{
+	v->len = sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
+}
+
 /**
  * init vector3 from source and target points
  */
