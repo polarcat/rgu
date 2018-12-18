@@ -67,7 +67,7 @@ static inline uint8_t falling_edge(uint16_t *x, uint16_t y, uint8_t *c)
 	uint8_t c3 = byte(*x + FALL_FOOT_WIDTH + 1, y);
 
 	*x += FALL_ADVANCE;
-	*c = (c0 + c1 + c2 + c3) >> 2;
+	*c = (c2 + c1) >> 1;
 	store_edge();
 
 	if (fall_condition_param(1))
@@ -215,7 +215,7 @@ static inline uint8_t rising_edge(uint16_t *x, uint16_t y, uint8_t *c)
 	uint8_t c3 = byte(*x + RISE_FOOT_WIDTH + 1, y);
 
 	*x += RISE_ADVANCE;
-	*c = (c0 + c1 + c2 + c3) >> 2;
+	*c = (c2 + c1) >> 1;
 	store_edge();
 
 	if (rise_condition())
@@ -230,7 +230,6 @@ static inline uint8_t rising_edge_right(uint16_t x, uint16_t y)
 	uint8_t c1 = byte(x + 1, y);
 	uint8_t c2 = byte(x + RISE_FOOT_WIDTH, y);
 	uint8_t c3 = byte(x + RISE_FOOT_WIDTH + 1, y);
-	uint8_t slope = MIN_RISE_SLOPE;
 
 	store_edge();
 
@@ -257,7 +256,6 @@ static inline uint8_t rising_edge_left(uint16_t x, uint16_t y)
 	uint8_t c1 = byte(x - 1, y);
 	uint8_t c2 = byte(x - RISE_FOOT_WIDTH, y);
 	uint8_t c3 = byte(x - RISE_FOOT_WIDTH - 1, y);
-	uint8_t slope = MIN_RISE_SLOPE;
 
 	store_edge();
 
@@ -287,7 +285,6 @@ static inline uint8_t rising_edge_up(uint16_t x, uint16_t y)
 	uint8_t c1 = byte(x, y - 1);
 	uint8_t c2 = byte(x, y - RISE_FOOT_WIDTH);
 	uint8_t c3 = byte(x, y - RISE_FOOT_WIDTH - 1);
-	uint8_t slope = MIN_RISE_SLOPE;
 
 	store_edge();
 
@@ -317,7 +314,6 @@ static inline uint8_t rising_edge_down(uint16_t x, uint16_t y)
 	uint8_t c1 = byte(x, y + 1);
 	uint8_t c2 = byte(x, y + RISE_FOOT_WIDTH);
 	uint8_t c3 = byte(x, y + RISE_FOOT_WIDTH + 1);
-	uint8_t slope = MIN_RISE_SLOPE;
 
 	store_edge();
 
