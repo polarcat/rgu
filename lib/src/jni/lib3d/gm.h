@@ -11,42 +11,42 @@
 #include <math.h>
 
 union gm_line {
-	float data[4];
+	double data[4];
 	struct {
-		float x0;
-		float y0;
-		float x1;
-		float y1;
+		double x0;
+		double y0;
+		double x1;
+		double y1;
 	};
 };
 
 union gm_vec2 {
-	float data[3];
+	double data[3];
 	struct {
-		float x;
-		float y;
-		float len;
+		double x;
+		double y;
+		double len;
 	};
 };
 
 union gm_vec3 {
-	float data[4];
+	double data[4];
 	struct {
-		float x;
-		float y;
-		float z;
-		float len;
+		double x;
+		double y;
+		double z;
+		double len;
 	};
 };
 
 union gm_plane3 {
-	union gm_vec3 normal; /* x ==> A, y ==> B, z ==> C */
+	union gm_vec3 n; /* x ==> A, y ==> B, z ==> C */
 	struct {
-		float a;
-		float b;
-		float c;
-		float len;
-		float d;
+		double a;
+		double b;
+		double c;
+		double len;
+		double d;
 	};
 };
 
@@ -64,45 +64,44 @@ union gm_plane3 {
 
 /* marix4 ops */
 
-void gm_mat4_identity(float m[16]);
-void gm_mat4_mulmm(float r[16], const float m0[16], const float m1[16]);
-void gm_mat4_mulmv(float r[4], const float m[16], const float v[4]);
-void gm_mat4_invert(float r[16], const float m[16]);
+void gm_mat4_identity(double m[16]);
+void gm_mat4_mulmm(double r[16], const double m0[16], const double m1[16]);
+void gm_mat4_mulmv(double r[4], const double m[16], const double v[4]);
+void gm_mat4_invert(double r[16], const double m[16]);
 
 /* vector2 ops */
 
-void gm_vec2_init(union gm_vec2 *v, const float v0[3], const float v1[3]);
-float gm_vec2_crossprod(const union gm_vec2 *v0, const union gm_vec2 *v1);
-float gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1);
-float gm_vec2_angle(const union gm_vec2 *v0,
+void gm_vec2_init(union gm_vec2 *v, const double v0[3], const double v1[3]);
+double gm_vec2_crossprod(const union gm_vec2 *v0, const union gm_vec2 *v1);
+double gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1);
+double gm_vec2_angle(const union gm_vec2 *v0,
   const union gm_vec2 *v1);
 void gm_vec2_normalize(union gm_vec2 *v);
 
 /* vector3 ops */
 
 void gm_vec3_len(union gm_vec3 *v);
-void gm_vec3_init(union gm_vec3 *v, const float v0[3], const float v1[3]);
-void gm_vec3_crossprod(union gm_vec3 *v, const float v0[3],
-  const float v1[3]);
-float gm_vec3_dotprod(const union gm_vec3 *v0,
+void gm_vec3_init(union gm_vec3 *v, const double p0[3], const double p1[3]);
+void gm_vec3_crossprod(union gm_vec3 *v, const union gm_vec3 *v0,
   const union gm_vec3 *v1);
-float gm_vec3_angle(const union gm_vec3 *v0, const union gm_vec3 *v1);
+double gm_vec3_dotprod(const union gm_vec3 *v0, const union gm_vec3 *v1);
+double gm_vec3_angle(const union gm_vec3 *v0, const union gm_vec3 *v1);
 void gm_vec3_normalize(union gm_vec3 *v);
 
 /* plane ops */
 
-void gm_plane_init(union gm_plane3 *p, const float point1[3],
-  const float point2[3], const float point3[3]);
-void gm_plane_intersect(const union gm_plane3 *p, const float dir[3],
-  const float origin[3], union gm_vec3 *res);
-void gm_ray_intersect(const union gm_plane3 *p, float x, float y, float w,
-  float h, const float vp[16], union gm_vec3 *res);
+void gm_plane_init(union gm_plane3 *p, const double p1[3],
+  const double p2[3], const double p3[3]);
+void gm_plane_intersect(const union gm_plane3 *p, const double dir[3],
+  const double origin[3], union gm_vec3 *res);
+void gm_ray_intersect(const union gm_plane3 *p, double x, double y, double w,
+  double h, const double vp[16], union gm_vec3 *res);
 
 /* line ops */
 
-float gm_line_fx(const union gm_line *l, float x);
-float gm_perp_fx(const union gm_line *l, float x);
-float gm_line_angle(const union gm_line *l, uint8_t perp);
+double gm_line_fx(const union gm_line *l, double x);
+double gm_perp_fx(const union gm_line *l, double x);
+double gm_line_angle(const union gm_line *l, uint8_t perp);
 
 #define radians(angle) (angle) * M_PI / 180
 #define degrees(angle) (angle) * 180 / M_PI
@@ -123,10 +122,10 @@ float gm_line_angle(const union gm_line *l, uint8_t perp);
 #define gm_circle_ry(center_y, radius, degrees)\
     (center_y) + gm_ry_[radius + degrees * gm_max_x_]
 
-extern float gm_cos_[360];
-extern float gm_sin_[360];
-extern float *gm_rx_;
-extern float *gm_ry_;
+extern double gm_cos_[360];
+extern double gm_sin_[360];
+extern double *gm_rx_;
+extern double *gm_ry_;
 extern uint16_t gm_max_x_;
 
 void gm_open(uint16_t x_max);

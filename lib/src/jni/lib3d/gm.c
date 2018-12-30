@@ -15,7 +15,7 @@
 
 /* column-major matrix4 ops */
 
-void gm_mat4_identity(float m[16])
+void gm_mat4_identity(double m[16])
 {
 	m[0] = m[5] = m[10] = m[15] = 1;
 	m[1] = m[2] = m[3] = m[4] = m[6] = m[7] = m[8] = m[9] = m[11] = 0;
@@ -25,7 +25,7 @@ void gm_mat4_identity(float m[16])
 #define m4e(r, e1, e2, e3, e4, e5, e6, e7, e8)\
 	r = e1 * e2 + e3 * e4 + e5 * e6 + e7 * e8
 
-void gm_mat4_mulmm(float r[16], const float m0[16], const float m1[16])
+void gm_mat4_mulmm(double r[16], const double m0[16], const double m1[16])
 {
 	m4e(r[0], m0[0], m1[0], m0[1], m1[4], m0[2], m1[8], m0[3], m1[12]);
 	m4e(r[1], m0[0], m1[1], m0[1], m1[5], m0[2], m1[9], m0[3], m1[13]);
@@ -47,7 +47,7 @@ void gm_mat4_mulmm(float r[16], const float m0[16], const float m1[16])
 
 #undef m4e
 
-void gm_mat4_mulmv(float r[4], const float m[16], const float v[4])
+void gm_mat4_mulmv(double r[4], const double m[16], const double v[4])
 {
 	r[0] = m[0] * v[0] + m[4] * v[1] + m[8] * v[2] + m[12] * v[3];
 	r[1] = m[1] * v[0] + m[5] * v[1] + m[9] * v[2] + m[13] * v[3];
@@ -55,10 +55,10 @@ void gm_mat4_mulmv(float r[4], const float m[16], const float v[4])
 	r[3] = m[3] * v[0] + m[7] * v[1] + m[11] * v[2] + m[15] * v[3];
 }
 
-void gm_mat4_invert(float r[16], const float m[16])
+void gm_mat4_invert(double r[16], const double m[16])
 {
-	float inv[16];
-	float det;
+	double inv[16];
+	double det;
 	int i;
 
 	inv[0] = m[5] * m[10] * m[15] -
@@ -185,7 +185,7 @@ void gm_mat4_invert(float r[16], const float m[16])
 
 /* vector2 ops */
 
-void gm_vec2_init(union gm_vec2 *v, const float v0[2], const float v1[2])
+void gm_vec2_init(union gm_vec2 *v, const double v0[2], const double v1[2])
 {
 	const union gm_vec2 *vec0 = (const union gm_vec2 *) v0;
 	const union gm_vec2 *vec1 = (const union gm_vec2 *) v1;
@@ -195,17 +195,17 @@ void gm_vec2_init(union gm_vec2 *v, const float v0[2], const float v1[2])
 	v->len = sqrt(v->x * v->x + v->y * v->y);
 }
 
-float gm_vec2_crossprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
+double gm_vec2_crossprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
 {
 	return (v0->x * v1->y - v0->y * v1->x) / (v0->len * v1->len);
 }
 
-float gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
+double gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
 {
-	return (v0->x * v1->x + v0->y * v1->y) / (v0->len * v1->len);
+	return v0->x * v1->x + v0->y * v1->y;
 }
 
-float gm_vec2_angle(const union gm_vec2 *v0,
+double gm_vec2_angle(const union gm_vec2 *v0,
   const union gm_vec2 *v1)
 {
 	return acos(gm_vec2_dotprod(v0, v1) / (v0->len * v1->len));
@@ -228,30 +228,27 @@ void gm_vec3_len(union gm_vec3 *v)
 /**
  * init vector3 from source and target points
  */
-void gm_vec3_init(union gm_vec3 *v, const float v0[3], const float v1[3])
+void gm_vec3_init(union gm_vec3 *v, const double p0[3], const double p1[3])
 {
-	const union gm_vec3 *vec0 = (const union gm_vec3 *) v0;
-	const union gm_vec3 *vec1 = (const union gm_vec3 *) v1;
+	const union gm_vec3 *v0 = (const union gm_vec3 *) p0;
+	const union gm_vec3 *v1 = (const union gm_vec3 *) p1;
 
-	v->x = vec1->x - vec0->x;
-	v->y = vec1->y - vec0->y;
-	v->z = vec1->z - vec0->z;
+	v->x = v1->x - v0->x;
+	v->y = v1->y - v0->y;
+	v->z = v1->z - v0->z;
 	v->len = sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
 }
 
-void gm_vec3_crossprod(union gm_vec3 *v, const float v0[3],
-  const float v1[3])
+void gm_vec3_crossprod(union gm_vec3 *v, const union gm_vec3 *v0,
+  const union gm_vec3 *v1)
 {
-	const union gm_vec3 *vec0 = (const union gm_vec3 *) v0;
-	const union gm_vec3 *vec1 = (const union gm_vec3 *) v1;
-
-	v->x = vec0->y * vec1->z - vec0->z * vec1->y;
-	v->y = vec0->z * vec1->x - vec0->x * vec1->z;
-	v->z = vec0->x * vec1->y - vec0->y * vec1->x;
+	v->x = v0->y * v1->z - v0->z * v1->y;
+	v->y = v0->z * v1->x - v0->x * v1->z;
+	v->z = v0->x * v1->y - v0->y * v1->x;
 	v->len = sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
 }
 
-float gm_vec3_dotprod(const union gm_vec3 *v0, const union gm_vec3 *v1)
+double gm_vec3_dotprod(const union gm_vec3 *v0, const union gm_vec3 *v1)
 {
 	return v0->x * v1->x + v0->y * v1->y + v0->z * v1->z;
 }
@@ -267,7 +264,7 @@ void gm_vec3_normalize(union gm_vec3 *v)
 /**
  * compute angle between two vectors
  */
-float gm_vec3_angle(const union gm_vec3 *v0,
+double gm_vec3_angle(const union gm_vec3 *v0,
   const union gm_vec3 *v1)
 {
 	return acos(gm_vec3_dotprod(v0, v1) / (v0->len * v1->len));
@@ -275,24 +272,29 @@ float gm_vec3_angle(const union gm_vec3 *v0,
 
 /* plane ops */
 
-void gm_plane_init(union gm_plane3 *p, const float point0[3],
-  const float point1[3], const float point2[3])
+void gm_plane_init(union gm_plane3 *p, const double p0[3],
+  const double p1[3], const double p2[3])
 {
-	gm_vec3_crossprod(&p->normal, point1, point2);
-	gm_vec3_normalize(&p->normal);
-	p->d = -1 * (p->normal.x * point0[0] + p->normal.y * point0[1] +
-	  p->normal.z * point0[2]);
+	union gm_vec3 v0;
+	union gm_vec3 v1;
+
+	gm_vec3_init(&v0, p0, p1);
+	gm_vec3_init(&v1, p0, p2);
+
+	gm_vec3_crossprod(&p->n, &v0, &v1);
+	gm_vec3_normalize(&p->n);
+	p->d = -1 * (p->n.x * v0.x + p->n.y * v0.y + p->n.z * v0.z);
 }
 
-void gm_plane3_intersect(const union gm_plane3 *p, const float dir[3],
-  const float origin[3], union gm_vec3 *v)
+void gm_plane3_intersect(const union gm_plane3 *p, const double dir[3],
+  const double origin[3], union gm_vec3 *v)
 {
-	float x1 = origin[0];
-	float y1 = origin[1];
-	float z1 = origin[2];
-	float ax = dir[0];
-	float ay = dir[1];
-	float az = dir[2];
+	double x1 = origin[0];
+	double y1 = origin[1];
+	double z1 = origin[2];
+	double ax = dir[0];
+	double ay = dir[1];
+	double az = dir[2];
 
 	v->len = -1 * (p->a * x1 + p->b * y1 + p->c * z1 + p->d) /
 	  (p->a * ax + p->b * ay + p->c * az);
@@ -301,18 +303,18 @@ void gm_plane3_intersect(const union gm_plane3 *p, const float dir[3],
 	v->z = z1 + az * v->len;
 }
 
-void gm_ray_intersect(const union gm_plane3 *p, float x, float y,
-  float w, float h, const float vp[16], union gm_vec3 *v)
+void gm_ray_intersect(const union gm_plane3 *p, double x, double y,
+  double w, double h, const double vp[16], union gm_vec3 *v)
 {
-	float xx = x * 2. / w - 1.;
-	float yy = (h - y) * 2. / h - 1.;
-	float far_screen[4] = { xx, yy, 1., 1., };
-	float near_screen[4] = { xx, yy, -1., 1., };
-	float near_plane[4];
-	float far_plane[4];
-	float inv_vp[16];
-	float origin[3];
-	float dir[3];
+	double xx = x * 2. / w - 1.;
+	double yy = (h - y) * 2. / h - 1.;
+	double far_screen[4] = { xx, yy, 1., 1., };
+	double near_screen[4] = { xx, yy, -1., 1., };
+	double near_plane[4];
+	double far_plane[4];
+	double inv_vp[16];
+	double origin[3];
+	double dir[3];
 
 	gm_mat4_identity(inv_vp);
 	gm_mat4_invert(inv_vp, vp);
@@ -332,7 +334,7 @@ void gm_ray_intersect(const union gm_plane3 *p, float x, float y,
 	dir[1] -= origin[1];
 	dir[2] -= origin[2];
 
-	float norm = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+	double norm = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
 
 	dir[0] /= norm;
 	dir[1] /= norm;
@@ -341,7 +343,7 @@ void gm_ray_intersect(const union gm_plane3 *p, float x, float y,
 	gm_plane3_intersect(p, dir, origin, v);
 }
 
-float gm_perp_fx(const union gm_line *l, float x)
+double gm_perp_fx(const union gm_line *l, double x)
 {
 	/*
 	 *  f(x) = (y1 - y0) / (x1 - x0) * (x - x0) + y0
@@ -354,7 +356,7 @@ float gm_perp_fx(const union gm_line *l, float x)
 		return (l->x0 - l->x1) / (l->y1 - l->y0) * (x - l->x0) + l->y0;
 }
 
-float gm_line_fx(const union gm_line *l, float x)
+double gm_line_fx(const union gm_line *l, double x)
 {
 	/* f(x) = (x - x0) * (y1 - y0) / (x1 - x0) + y0 */
 
@@ -364,15 +366,15 @@ float gm_line_fx(const union gm_line *l, float x)
 		return (l->y1 - l->y0) / (l->x1 - l->x0) * (x - l->x0) + l->y0;
 }
 
-float gm_line_angle(const union gm_line *l, uint8_t perp)
+double gm_line_angle(const union gm_line *l, uint8_t perp)
 {
-	float dx = l->x1 - l->x0;
+	double dx = l->x1 - l->x0;
 
 	if (dx == 0.) { /* slope undefined */
 		return 0.;
 	} else {
-		float slope;
-		float angle;
+		double slope;
+		double angle;
 
 		if (perp)
 			slope = (l->x0 - l->x1) / (l->y1 - l->y0);
@@ -390,10 +392,10 @@ float gm_line_angle(const union gm_line *l, uint8_t perp)
 	}
 }
 
-float gm_cos_[360];
-float gm_sin_[360];
-float *gm_rx_ = NULL;
-float *gm_ry_ = NULL;
+double gm_cos_[360];
+double gm_sin_[360];
+double *gm_rx_ = NULL;
+double *gm_ry_ = NULL;
 uint16_t gm_max_x_ = 0;
 
 void gm_open(uint16_t x_max)
@@ -403,14 +405,14 @@ void gm_open(uint16_t x_max)
         gm_sin_[a] = sin(radians(a));
     }
 
-    size_t size = 360 * x_max * sizeof(float);
+    size_t size = 360 * x_max * sizeof(double);
 
-    if (!(gm_rx_ = (float *) malloc(size))) {
+    if (!(gm_rx_ = (double *) malloc(size))) {
         ee("failed to allocate %zu bytes\n", size);
         return;
     }
 
-    if (!(gm_ry_ = (float *) malloc(size))) {
+    if (!(gm_ry_ = (double *) malloc(size))) {
         ee("failed to allocate %zu bytes\n", size);
         free(gm_rx_);
         gm_rx_ = NULL;
