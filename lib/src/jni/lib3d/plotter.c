@@ -404,6 +404,19 @@ void plot_point(uint16_t x, uint16_t y, float r, float g, float b, uint8_t size)
 	unlock_points();
 }
 
+void plot_text0_ndc(float x, float y, const char *str, size_t len,
+  uint32_t fg, uint32_t bg)
+{
+	gl_disable_features();
+
+	if (async_)
+		font_render_async(font0_, str, len, x, y, fg, bg);
+	else
+		font_render(font0_, str, len, x, y, fg, bg);
+
+	gl_enable_features();
+}
+
 void plot_text0(uint16_t x, uint16_t y, const char *str, size_t len,
   uint32_t fg, uint32_t bg)
 {
