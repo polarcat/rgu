@@ -10,13 +10,32 @@
 #include <stdint.h>
 #include <math.h>
 
-union gm_line {
-	double data[4];
+union gm_point2 {
+	double data[2];
 	struct {
-		double x0;
-		double y0;
-		double x1;
-		double y1;
+		double x;
+		double y;
+	};
+};
+
+union gm_point3 {
+	double data[3];
+	struct {
+		double x;
+		double y;
+		double z;
+	};
+};
+
+union gm_line {
+	float data[4];
+	struct {
+		float x0;
+		float y0;
+		float x1;
+		float y1;
+		float cx;
+		float cy;
 	};
 };
 
@@ -74,9 +93,11 @@ void gm_mat4_invert(double r[16], const double m[16]);
 void gm_vec2_init(union gm_vec2 *v, const double v0[3], const double v1[3]);
 double gm_vec2_crossprod(const union gm_vec2 *v0, const union gm_vec2 *v1);
 double gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1);
+double gm_vec2_cos(const union gm_vec2 *v0, const union gm_vec2 *v1);
 double gm_vec2_angle(const union gm_vec2 *v0,
   const union gm_vec2 *v1);
 void gm_vec2_normalize(union gm_vec2 *v);
+void gm_vec2_len(union gm_vec2 *v);
 
 /* vector3 ops */
 
@@ -99,12 +120,17 @@ void gm_ray_intersect(const union gm_plane3 *p, double x, double y, double w,
 
 /* line ops */
 
-double gm_line_fx(const union gm_line *l, double x);
-double gm_perp_fx(const union gm_line *l, double x);
-double gm_line_angle(const union gm_line *l, uint8_t perp);
+float gm_line_fx(const union gm_line *l, float x);
+float gm_perp_fx(const union gm_line *l, float x);
+float gm_line_angle(const union gm_line *l, uint8_t perp);
+float gm_line_length(union gm_line *l);
+void gm_line_perp(union gm_line *l);
+void gm_reflect_line(union gm_line *l);
+void gm_line_center(union gm_line *l);
+void gm_line_div2(union gm_line *l);
 
-#define radians(angle) (angle) * M_PI / 180
-#define degrees(angle) (angle) * 180 / M_PI
+#define radians(angle) ((angle) * (M_PI) / 180)
+#define degrees(angle) ((angle) * 180 / (M_PI))
 
 /* arbitrary radius and angle */
 
@@ -131,5 +157,6 @@ extern uint16_t gm_max_x_;
 void gm_open(uint16_t x_max);
 void gm_close(void);
 
-#define gm_norm_x(x, w) (x) / ((w) * .5) - 1.
-#define gm_norm_y(y, h) 1. - (y) / ((h) * .5)
+#define gm_norm_x(x, w) ((x) / ((w) * .5) - 1.)
+#define gm_norm_y(y, h) (1. - (y) / ((h) * .5))
+#define gm_norm_z(z, h) (1. / (h) * (z))

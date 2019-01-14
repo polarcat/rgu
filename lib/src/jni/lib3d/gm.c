@@ -185,13 +185,10 @@ void gm_mat4_invert(double r[16], const double m[16])
 
 /* vector2 ops */
 
-void gm_vec2_init(union gm_vec2 *v, const double v0[2], const double v1[2])
+void gm_vec2_init(union gm_vec2 *v, const double p0[2], const double p1[2])
 {
-	const union gm_vec2 *vec0 = (const union gm_vec2 *) v0;
-	const union gm_vec2 *vec1 = (const union gm_vec2 *) v1;
-
-	v->x = vec1->x - vec0->x;
-	v->y = vec1->y - vec0->y;
+	v->x = p1[0] - p0[0];
+	v->y = p1[1] - p0[1];
 	v->len = sqrt(v->x * v->x + v->y * v->y);
 }
 
@@ -203,6 +200,11 @@ double gm_vec2_crossprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
 double gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
 {
 	return v0->x * v1->x + v0->y * v1->y;
+}
+
+double gm_vec2_cos(const union gm_vec2 *v0, const union gm_vec2 *v1)
+{
+	return gm_vec2_dotprod(v0, v1) / (v0->len * v1->len);
 }
 
 double gm_vec2_angle(const union gm_vec2 *v0,
@@ -218,6 +220,11 @@ void gm_vec2_normalize(union gm_vec2 *v)
 	v->len = 1;
 }
 
+void gm_vec2_len(union gm_vec2 *v)
+{
+	v->len = sqrt(v->x * v->x + v->y * v->y);
+}
+
 /* vector3 ops */
 
 void gm_vec3_len(union gm_vec3 *v)
@@ -230,12 +237,9 @@ void gm_vec3_len(union gm_vec3 *v)
  */
 void gm_vec3_init(union gm_vec3 *v, const double p0[3], const double p1[3])
 {
-	const union gm_vec3 *v0 = (const union gm_vec3 *) p0;
-	const union gm_vec3 *v1 = (const union gm_vec3 *) p1;
-
-	v->x = v1->x - v0->x;
-	v->y = v1->y - v0->y;
-	v->z = v1->z - v0->z;
+	v->x = p1[0] - p0[0];
+	v->y = p1[1] - p0[1];
+	v->z = p1[2] - p0[2];
 	v->len = sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
 }
 
@@ -343,7 +347,7 @@ void gm_ray_intersect(const union gm_plane3 *p, double x, double y,
 	gm_plane3_intersect(p, dir, origin, v);
 }
 
-double gm_perp_fx(const union gm_line *l, double x)
+float gm_perp_fx(const union gm_line *l, float x)
 {
 	/*
 	 *  f(x) = (y1 - y0) / (x1 - x0) * (x - x0) + y0
@@ -356,7 +360,7 @@ double gm_perp_fx(const union gm_line *l, double x)
 		return (l->x0 - l->x1) / (l->y1 - l->y0) * (x - l->x0) + l->y0;
 }
 
-double gm_line_fx(const union gm_line *l, double x)
+float gm_line_fx(const union gm_line *l, float x)
 {
 	/* f(x) = (x - x0) * (y1 - y0) / (x1 - x0) + y0 */
 
@@ -366,15 +370,15 @@ double gm_line_fx(const union gm_line *l, double x)
 		return (l->y1 - l->y0) / (l->x1 - l->x0) * (x - l->x0) + l->y0;
 }
 
-double gm_line_angle(const union gm_line *l, uint8_t perp)
+float gm_line_angle(const union gm_line *l, uint8_t perp)
 {
-	double dx = l->x1 - l->x0;
+	float dx = l->x1 - l->x0;
 
 	if (dx == 0.) { /* slope undefined */
 		return 0.;
 	} else {
-		double slope;
-		double angle;
+		float slope;
+		float angle;
 
 		if (perp)
 			slope = (l->x0 - l->x1) / (l->y1 - l->y0);
@@ -390,6 +394,51 @@ double gm_line_angle(const union gm_line *l, uint8_t perp)
 
 		return angle; /* of incline in radians */
 	}
+}
+
+void gm_line_perp(union gm_line *l)
+{
+	float x = l->x0;
+	float y = l->y0;
+
+	l->x0 = y;
+	l->y0 = -x;
+	x = l->x1;
+	y = l->y1;
+	l->x1 = y;
+	l->y1 = -x;
+}
+
+void gm_reflect_line(union gm_line *l)
+{
+	float x0 = l->x1;
+	float y0 = l->y1;
+
+	l->x1 = -1 * (l->x0 - 2 * l->x1);
+	l->y1 = -1 * (l->y0 - 2 * l->y1);
+	l->x0 = x0;
+	l->y0 = y0;
+}
+
+void gm_line_center(union gm_line *l)
+{
+	l->cx = (l->x0 + l->x1) * .5;
+	l->cy = (l->y0 + l->y1) * .5;
+}
+
+void gm_line_div2(union gm_line *l)
+{
+	gm_line_center(l);
+	l->x0 = l->cx;
+	l->y0 = l->cy;
+}
+
+float gm_line_length(union gm_line *l)
+{
+	float x = l->x1 - l->x0;
+	float y = l->y1 - l->y0;
+
+	return sqrt(x * x + y * y);
 }
 
 double gm_cos_[360];
