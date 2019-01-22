@@ -15,6 +15,7 @@ struct image {
 	GLuint format;
 };
 
+uint8_t buf2png(const uint8_t *buf, struct image *image);
 uint8_t readpng(const char *path, struct image *image);
 uint8_t readjpg(const char *path, struct image *image);
 

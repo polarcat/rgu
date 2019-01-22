@@ -209,6 +209,112 @@ out:
 	return rc;
 }
 
+static void pngerr(png_structp png_ptr, png_const_charp msg)
+{
+    ee("png: %s\n", msg);
+}
+
+static const uint8_t *imgbuf_;
+
+static void pngcpy(png_structp png, png_bytep data, png_size_t size)
+{
+    memcpy(data, imgbuf_, size);
+    imgbuf_ += size;
+}
+
+#define PNG_SIGNATURE_LEN 8
+
+uint8_t buf2png(const uint8_t *buf, struct image *img)
+{
+    uint8_t n;
+    int16_t y;
+    size_t retsize;
+    uint8_t *ret;
+    uint8_t *dst;
+    png_structp png;
+    png_bytep *rows;
+    png_infop info = NULL;
+
+    if (!png_check_sig(buf, PNG_SIGNATURE_LEN)) {
+        ee("bad PNG signature: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+             buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
+        return 0;
+    }
+
+    ret = NULL;
+
+    if (!(png = png_create_read_struct(PNG_LIBPNG_VER_STRING, 0, pngerr, 0))) {
+	ee("png_create_read_struct() failed\n");
+	goto out;
+    }
+
+    if (!(info = png_create_info_struct(png))) {
+	ee("png_create_info_struct() failed\n");
+	goto out;
+    }
+
+    imgbuf_ = buf + PNG_SIGNATURE_LEN;
+
+    if (setjmp(png_jmpbuf(png))) {
+	ee("error reading png file\n");
+	goto out;
+    }
+
+    png_set_sig_bytes(png, PNG_SIGNATURE_LEN);
+    png_set_read_fn(png, NULL, pngcpy);
+    png_read_png(png, info, PNG_FLAGS, 0);
+
+    if (png_get_color_type(png, info) == PNG_COLOR_TYPE_RGBA) {
+	n = 4;
+    } else if (png_get_color_type(png, info) == PNG_COLOR_TYPE_RGB) {
+	n = 3;
+    } else {
+	ee("unsupported color type, expect RGB\n");
+	goto out;
+    }
+
+    uint16_t w = png_get_image_width(png, info);
+    uint16_t h = png_get_image_height(png, info);
+
+    retsize = w * h * 3;
+
+    ii("image %ux%u components %u | need %zu bytes\n", w, h, n, retsize);
+
+    if (!(ret = (uint8_t *) calloc(1, retsize)))
+	goto out;
+
+    rows = png_get_rows(png, info);
+
+    dst = ret;
+
+    for (y = 0; y < h; y++) {
+	const uint8_t *row = rows[y];
+	const uint8_t *end = row + w * n;
+
+	while (row < end) {
+	    *dst++ = *row++;
+	    *dst++ = *row++;
+	    *dst++ = *row++;
+
+	    if (n == 4)
+		row++;
+	}
+
+	dst = ret + 3 * w * y;
+    }
+
+    img->data = ret;
+    img->w = w;
+    img->h = h;
+    img->format = GL_RGB;
+
+out:
+    if (png && info)
+	png_destroy_read_struct(&png, &info, 0);
+
+    return !!ret;
+}
+
 struct my_error_mgr {
 	struct jpeg_error_mgr pub;
 	jmp_buf setjmp_buffer;
