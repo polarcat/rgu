@@ -13,6 +13,14 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
+#ifndef GL_CLAMP_TO_BORDER
+#ifdef GL_CLAMP_TO_BORDER_NV
+#define GL_CLAMP_TO_BORDER GL_CLAMP_TO_BORDER_NV
+#else
+#define GL_CLAMP_TO_BORDER 0x812D
+#endif
+#endif /* GL_CLAMP_TO_BORDER */
+
 #define gl_disable_features() {\
     glDisable(GL_DEPTH_TEST);\
     glDisable(GL_CULL_FACE);\
