@@ -21,4 +21,19 @@ public class scene {
 	public static native void pause();
 	public static native void close();
 	public static native void input(float x, float y);
+
+	/* device rotation and inclination matrices */
+
+	public static native void rmatrix(
+	  float a0, float a1, float a2,
+	  float a3, float a4, float a5,
+	  float a6, float a7, float a8);
+
+	public static native void imatrix(
+	  float a0, float a1, float a2,
+	  float a3, float a4, float a5,
+	  float a6, float a7, float a8);
+
+	public static native void orientation(float azimuth, float pitch,
+	  float roll);
 }

@@ -14,10 +14,12 @@
 
 #include <utils/time.h>
 #include <utils/log.h>
+#include <utils/sensors.h>
 
 #include "cv.h"
 #include "gl.h"
 #include "bg.h"
+#include "img.h"
 #include "font.h"
 
 static struct font *font0_;
@@ -51,7 +53,11 @@ jnicall(int, open, JNIEnv *env, jclass class, jobject asset_manager)
 
 	sem_init(&run_, 0, 0);
 
+#ifdef IMAGE_VIEWER
+	return img_open(AAssetManager_fromJava(env, asset_manager));
+#else
 	return bg_open();
+#endif
 }
 
 jnicall(void, render, JNIEnv *env, jclass class)
@@ -63,8 +69,12 @@ jnicall(void, render, JNIEnv *env, jclass class)
 		sem_wait(&run_);
 #endif
 
+#ifdef IMAGE_VIEWER
+	img_render();
+#else
 	bg_render(0);
 	cv_render();
+#endif
 //	print_fps(render);
 }
 
@@ -72,7 +82,11 @@ jnicall(void, resize, JNIEnv *env, jclass class, int w, int h)
 {
 	ii("new wh { %d, %d }\n", w, h);
 
+#ifdef IMAGE_VIEWER
+	img_resize(w, h);
+#else
 	bg_resize(w, h);
+#endif
 	cv_resize(w, h);
 }
 
@@ -84,7 +98,11 @@ jnicall(void, close, JNIEnv *env, jclass class)
 {
 	font_close(&font0_);
 	font_close(&font1_);
+#ifdef IMAGE_VIEWER
+	img_close();
+#else
 	bg_close();
+#endif
 	cv_close();
 }
 
@@ -122,6 +140,27 @@ jnicall(void, input, JNIEnv *env, jclass class, float x, float y)
 		post_sem();
 	}
 #endif
+}
+
+jnicall(void, rmatrix, JNIEnv *env, jclass class, float a0, float a1, float a2,
+  float a3, float a4, float a5, float a6, float a7, float a8)
+{
+	if (!pause_)
+		sensors_update_rmatrix(a0, a1, a2, a3, a4, a5, a6, a7, a8);
+}
+
+jnicall(void, imatrix, JNIEnv *env, jclass class, float a0, float a1, float a2,
+  float a3, float a4, float a5, float a6, float a7, float a8)
+{
+	if (!pause_)
+		sensors_update_imatrix(a0, a1, a2, a3, a4, a5, a6, a7, a8);
+}
+
+jnicall(void, orientation, JNIEnv *env, jclass class, float azimuth,
+  float pitch, float roll)
+{
+	if (!pause_)
+		sensors_update_orientation(azimuth, pitch, roll);
 }
 
 #ifdef __cplusplus
