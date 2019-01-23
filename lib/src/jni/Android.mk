@@ -13,6 +13,7 @@ lib3d/font.c \
 lib3d/draw.c \
 lib3d/pip.c \
 lib3d/cv.c \
+lib3d/sb.c \
 lib3d/plotter.c \
 utils/image.c \
 utils/sensors.c \
@@ -32,6 +33,6 @@ LOCAL_C_INCLUDES += $(PNG_INC) $(JPEG_INC)
 LOCAL_LDLIBS += -lm -llog -lGLESv2
 LOCAL_LDLIBS += -landroid # assets handling
 LOCAL_LDLIBS += -Wl,--start-group $(PNG_LIB) $(JPEG_LIB) -Wl,--end-group
-LOCAL_CFLAGS += "-DLIB_TAG=\"lib3d\"" -DIMAGE_VIEWER
+LOCAL_CFLAGS += "-DLIB_TAG=\"lib3d\""
 
 include $(BUILD_SHARED_LIBRARY)
