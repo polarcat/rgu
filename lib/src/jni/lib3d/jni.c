@@ -17,6 +17,7 @@
 #include <utils/sensors.h>
 
 #include "cv.h"
+#include "sb.h"
 #include "gl.h"
 #include "bg.h"
 #include "img.h"
@@ -49,13 +50,14 @@ jnicall(int, open, JNIEnv *env, jclass class, jobject asset_manager)
 	  AAssetManager_fromJava(env, asset_manager))))
 		return -1;
 
-	cv_open(font0_, font1_, CV_BLOCK);
-
 	sem_init(&run_, 0, 0);
 
 #ifdef IMAGE_VIEWER
+#error "IMAGE_VIEWER"
+	sb_open(font0_, font1_, CV_BLOCK);
 	return img_open(AAssetManager_fromJava(env, asset_manager));
 #else
+	cv_open(font0_, font1_, CV_BLOCK);
 	return bg_open();
 #endif
 }
@@ -71,6 +73,7 @@ jnicall(void, render, JNIEnv *env, jclass class)
 
 #ifdef IMAGE_VIEWER
 	img_render();
+	sb_render();
 #else
 	bg_render(0);
 	cv_render();
@@ -86,8 +89,8 @@ jnicall(void, resize, JNIEnv *env, jclass class, int w, int h)
 	img_resize(w, h);
 #else
 	bg_resize(w, h);
-#endif
 	cv_resize(w, h);
+#endif
 }
 
 jnicall(void, rotate, JNIEnv *env, jclass class, int r)
@@ -99,11 +102,12 @@ jnicall(void, close, JNIEnv *env, jclass class)
 	font_close(&font0_);
 	font_close(&font1_);
 #ifdef IMAGE_VIEWER
+	sb_close();
 	img_close();
 #else
 	bg_close();
-#endif
 	cv_close();
+#endif
 }
 
 jnicall(void, pause, JNIEnv *env, jclass class)
