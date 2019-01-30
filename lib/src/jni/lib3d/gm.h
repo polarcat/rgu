@@ -98,6 +98,7 @@ double gm_vec2_angle(const union gm_vec2 *v0,
   const union gm_vec2 *v1);
 void gm_vec2_normalize(union gm_vec2 *v);
 void gm_vec2_len(union gm_vec2 *v);
+void gm_vec2_rotate(union gm_vec2 *v, float a);
 
 /* vector3 ops */
 
@@ -123,11 +124,14 @@ void gm_ray_intersect(const union gm_plane3 *p, double x, double y, double w,
 float gm_line_fx(const union gm_line *l, float x);
 float gm_perp_fx(const union gm_line *l, float x);
 float gm_line_angle(const union gm_line *l, uint8_t perp);
-float gm_line_length(union gm_line *l);
+float gm_line_len(union gm_line *l);
 void gm_line_perp(union gm_line *l);
 void gm_reflect_line(union gm_line *l);
 void gm_line_center(union gm_line *l);
 void gm_line_div2(union gm_line *l);
+uint8_t gm_line_intersect(union gm_line *l1, union gm_line *l2,
+  union gm_point2 *p);
+uint8_t gm_circle_intersect(union gm_line *l, float r, union gm_point2 *p);
 
 #define radians(angle) ((angle) * (M_PI) / 180)
 #define degrees(angle) ((angle) * 180 / (M_PI))

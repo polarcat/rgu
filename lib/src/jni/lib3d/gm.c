@@ -225,6 +225,12 @@ void gm_vec2_len(union gm_vec2 *v)
 	v->len = sqrt(v->x * v->x + v->y * v->y);
 }
 
+void gm_vec2_rotate(union gm_vec2 *v, float a)
+{
+	v->x = v->x * cos(a) - v->y * sin(a);
+	v->y = v->x * sin(a) + v->y * cos(a);
+}
+
 /* vector3 ops */
 
 void gm_vec3_len(union gm_vec3 *v)
@@ -433,12 +439,52 @@ void gm_line_div2(union gm_line *l)
 	l->y0 = l->cy;
 }
 
-float gm_line_length(union gm_line *l)
+float gm_line_len(union gm_line *l)
 {
 	float x = l->x1 - l->x0;
 	float y = l->y1 - l->y0;
 
 	return sqrt(x * x + y * y);
+}
+
+uint8_t gm_line_intersect(union gm_line *l1, union gm_line *l2,
+  union gm_point2 *p)
+{
+	float denom = (l1->x0 - l1->x1) * (l2->y0 - l2->y1) -
+	  (l1->y0 - l1->y1) * (l2->x0 - l2->x1);
+
+	if (!denom)
+		return 0; /* lines are parallel or coincident */
+
+	float a = l1->x0 * l1->y1 - l1->y0 * l1->x1;
+	float b = l2->x0 * l2->y1 - l2->y0 * l2->x1;
+
+	p->x = (a * (l2->x0 - l2->x1) - b * (l1->x0 - l1->x1)) / denom;
+	p->y = (a * (l2->y0 - l2->y1) - b * (l1->y0 - l1->y1)) / denom;
+
+	return 1;
+}
+
+/* http://mathworld.wolfram.com/Circle-LineIntersection.html */
+
+uint8_t gm_circle_intersect(union gm_line *l, float r, union gm_point2 *p)
+{
+	float r2 = r * r;
+	float dx = l->x1 - l->x0;
+	float dy = l->y1 - l->y0;
+	float dr2 = dx * dx + dy * dy;
+	float d = l->x0 * l->y1 - l->x1 * l->y0;
+	float delta = r2 * dr2 - d * d;
+
+	if (delta < 0)
+		return 0; /* no intersection */
+
+	/* return tangent line point or one of the intersections */
+
+	p->x = (d * dy - dx * sqrt(delta)) / dr2;
+	p->y = (-d * dx - fabs(dy) * sqrt(delta)) / dr2;
+
+	return 1;
 }
 
 double gm_cos_[360];
