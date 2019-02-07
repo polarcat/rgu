@@ -15,7 +15,7 @@
 
 /* column-major matrix4 ops */
 
-void gm_mat4_identity(double m[16])
+void gm_mat4_identity(float m[16])
 {
 	m[0] = m[5] = m[10] = m[15] = 1;
 	m[1] = m[2] = m[3] = m[4] = m[6] = m[7] = m[8] = m[9] = m[11] = 0;
@@ -25,7 +25,7 @@ void gm_mat4_identity(double m[16])
 #define m4e(r, e1, e2, e3, e4, e5, e6, e7, e8)\
 	r = e1 * e2 + e3 * e4 + e5 * e6 + e7 * e8
 
-void gm_mat4_mulmm(double r[16], const double m0[16], const double m1[16])
+void gm_mat4_mulmm(float r[16], const float m0[16], const float m1[16])
 {
 	m4e(r[0], m0[0], m1[0], m0[1], m1[4], m0[2], m1[8], m0[3], m1[12]);
 	m4e(r[1], m0[0], m1[1], m0[1], m1[5], m0[2], m1[9], m0[3], m1[13]);
@@ -47,7 +47,7 @@ void gm_mat4_mulmm(double r[16], const double m0[16], const double m1[16])
 
 #undef m4e
 
-void gm_mat4_mulmv(double r[4], const double m[16], const double v[4])
+void gm_mat4_mulmv(float r[4], const float m[16], const float v[4])
 {
 	r[0] = m[0] * v[0] + m[4] * v[1] + m[8] * v[2] + m[12] * v[3];
 	r[1] = m[1] * v[0] + m[5] * v[1] + m[9] * v[2] + m[13] * v[3];
@@ -55,10 +55,10 @@ void gm_mat4_mulmv(double r[4], const double m[16], const double v[4])
 	r[3] = m[3] * v[0] + m[7] * v[1] + m[11] * v[2] + m[15] * v[3];
 }
 
-void gm_mat4_invert(double r[16], const double m[16])
+void gm_mat4_invert(float r[16], const float m[16])
 {
-	double inv[16];
-	double det;
+	float inv[16];
+	float det;
 	int i;
 
 	inv[0] = m[5] * m[10] * m[15] -
@@ -185,44 +185,40 @@ void gm_mat4_invert(double r[16], const double m[16])
 
 /* vector2 ops */
 
-void gm_vec2_init(union gm_vec2 *v, const double p0[2], const double p1[2])
+void gm_vec2_init(union gm_vec2 *v, const union gm_point2 *p0,
+  const union gm_point2 *p1)
 {
-	v->x = p1[0] - p0[0];
-	v->y = p1[1] - p0[1];
-	v->len = sqrt(v->x * v->x + v->y * v->y);
+	v->x = p1->x - p0->x;
+	v->y = p1->y - p0->y;
 }
 
-double gm_vec2_crossprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
-{
-	return (v0->x * v1->y - v0->y * v1->x) / (v0->len * v1->len);
-}
-
-double gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
+float gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
 {
 	return v0->x * v1->x + v0->y * v1->y;
 }
 
-double gm_vec2_cos(const union gm_vec2 *v0, const union gm_vec2 *v1)
+float gm_vec2_cos(const union gm_vec2 *v0, const union gm_vec2 *v1)
 {
 	return gm_vec2_dotprod(v0, v1) / (v0->len * v1->len);
 }
 
-double gm_vec2_angle(const union gm_vec2 *v0,
-  const union gm_vec2 *v1)
+float gm_vec2_angle(const union gm_vec2 *v0, const union gm_vec2 *v1)
 {
 	return acos(gm_vec2_dotprod(v0, v1) / (v0->len * v1->len));
-}
-
-void gm_vec2_normalize(union gm_vec2 *v)
-{
-	v->x = v->x / v->len;
-	v->y = v->y / v->len;
-	v->len = 1;
 }
 
 void gm_vec2_len(union gm_vec2 *v)
 {
 	v->len = sqrt(v->x * v->x + v->y * v->y);
+}
+
+void gm_vec2_normalize(union gm_vec2 *v)
+{
+	float len = sqrt(v->x * v->x + v->y * v->y);
+
+	v->x = v->x / len;
+	v->y = v->y / len;
+	v->len = 1;
 }
 
 void gm_vec2_rotate(union gm_vec2 *v, float a)
@@ -233,20 +229,12 @@ void gm_vec2_rotate(union gm_vec2 *v, float a)
 
 /* vector3 ops */
 
-void gm_vec3_len(union gm_vec3 *v)
+void gm_vec3_init(union gm_vec3 *v, const union gm_point3 *p0,
+  const union gm_point3 *p1)
 {
-	v->len = sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
-}
-
-/**
- * init vector3 from source and target points
- */
-void gm_vec3_init(union gm_vec3 *v, const double p0[3], const double p1[3])
-{
-	v->x = p1[0] - p0[0];
-	v->y = p1[1] - p0[1];
-	v->z = p1[2] - p0[2];
-	v->len = sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
+	v->x = p1->x - p0->x;
+	v->y = p1->y - p0->y;
+	v->z = p1->z - p0->z;
 }
 
 void gm_vec3_crossprod(union gm_vec3 *v, const union gm_vec3 *v0,
@@ -255,35 +243,37 @@ void gm_vec3_crossprod(union gm_vec3 *v, const union gm_vec3 *v0,
 	v->x = v0->y * v1->z - v0->z * v1->y;
 	v->y = v0->z * v1->x - v0->x * v1->z;
 	v->z = v0->x * v1->y - v0->y * v1->x;
-	v->len = sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
 }
 
-double gm_vec3_dotprod(const union gm_vec3 *v0, const union gm_vec3 *v1)
+float gm_vec3_dotprod(const union gm_vec3 *v0, const union gm_vec3 *v1)
 {
 	return v0->x * v1->x + v0->y * v1->y + v0->z * v1->z;
 }
 
+void gm_vec3_len(union gm_vec3 *v)
+{
+	v->len = sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
+}
+
 void gm_vec3_normalize(union gm_vec3 *v)
 {
-	v->x = v->x / v->len;
-	v->y = v->y / v->len;
-	v->z = v->z / v->len;
+	float len = sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
+
+	v->x = v->x / len;
+	v->y = v->y / len;
+	v->z = v->z / len;
 	v->len = 1;
 }
 
-/**
- * compute angle between two vectors
- */
-double gm_vec3_angle(const union gm_vec3 *v0,
-  const union gm_vec3 *v1)
+float gm_vec3_angle(const union gm_vec3 *v0, const union gm_vec3 *v1)
 {
 	return acos(gm_vec3_dotprod(v0, v1) / (v0->len * v1->len));
 }
 
 /* plane ops */
 
-void gm_plane_init(union gm_plane3 *p, const double p0[3],
-  const double p1[3], const double p2[3])
+void gm_plane_init(union gm_plane3 *p, const union gm_point3 *p0,
+  const union gm_point3 *p1, const union gm_point3 *p2)
 {
 	union gm_vec3 v0;
 	union gm_vec3 v1;
@@ -296,15 +286,15 @@ void gm_plane_init(union gm_plane3 *p, const double p0[3],
 	p->d = -1 * (p->n.x * v0.x + p->n.y * v0.y + p->n.z * v0.z);
 }
 
-void gm_plane3_intersect(const union gm_plane3 *p, const double dir[3],
-  const double origin[3], union gm_vec3 *v)
+void gm_plane3_intersect(const union gm_plane3 *p, const float dir[3],
+  const float origin[3], union gm_vec3 *v)
 {
-	double x1 = origin[0];
-	double y1 = origin[1];
-	double z1 = origin[2];
-	double ax = dir[0];
-	double ay = dir[1];
-	double az = dir[2];
+	float x1 = origin[0];
+	float y1 = origin[1];
+	float z1 = origin[2];
+	float ax = dir[0];
+	float ay = dir[1];
+	float az = dir[2];
 
 	v->len = -1 * (p->a * x1 + p->b * y1 + p->c * z1 + p->d) /
 	  (p->a * ax + p->b * ay + p->c * az);
@@ -313,18 +303,18 @@ void gm_plane3_intersect(const union gm_plane3 *p, const double dir[3],
 	v->z = z1 + az * v->len;
 }
 
-void gm_ray_intersect(const union gm_plane3 *p, double x, double y,
-  double w, double h, const double vp[16], union gm_vec3 *v)
+void gm_ray_intersect(const union gm_plane3 *p, float x, float y,
+  float w, float h, const float vp[16], union gm_vec3 *v)
 {
-	double xx = x * 2. / w - 1.;
-	double yy = (h - y) * 2. / h - 1.;
-	double far_screen[4] = { xx, yy, 1., 1., };
-	double near_screen[4] = { xx, yy, -1., 1., };
-	double near_plane[4];
-	double far_plane[4];
-	double inv_vp[16];
-	double origin[3];
-	double dir[3];
+	float xx = x * 2. / w - 1.;
+	float yy = (h - y) * 2. / h - 1.;
+	float far_screen[4] = { xx, yy, 1., 1., };
+	float near_screen[4] = { xx, yy, -1., 1., };
+	float near_plane[4];
+	float far_plane[4];
+	float inv_vp[16];
+	float origin[3];
+	float dir[3];
 
 	gm_mat4_identity(inv_vp);
 	gm_mat4_invert(inv_vp, vp);
@@ -344,7 +334,7 @@ void gm_ray_intersect(const union gm_plane3 *p, double x, double y,
 	dir[1] -= origin[1];
 	dir[2] -= origin[2];
 
-	double norm = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+	float norm = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
 
 	dir[0] /= norm;
 	dir[1] /= norm;
@@ -487,50 +477,11 @@ uint8_t gm_circle_intersect(union gm_line *l, float r, union gm_point2 *p)
 	return 1;
 }
 
-double gm_cos_[360];
-double gm_sin_[360];
-double *gm_rx_ = NULL;
-double *gm_ry_ = NULL;
-uint16_t gm_max_x_ = 0;
-
 void gm_open(uint16_t x_max)
 {
-    for (uint16_t a = 0; a < 360; ++a) {
-        gm_cos_[a] = cos(radians(a));
-        gm_sin_[a] = sin(radians(a));
-    }
-
-    size_t size = 360 * x_max * sizeof(double);
-
-    if (!(gm_rx_ = (double *) malloc(size))) {
-        ee("failed to allocate %zu bytes\n", size);
-        return;
-    }
-
-    if (!(gm_ry_ = (double *) malloc(size))) {
-        ee("failed to allocate %zu bytes\n", size);
-        free(gm_rx_);
-        gm_rx_ = NULL;
-        return;
-    }
-
-    uint32_t i = 0;
-
-    for (uint16_t a = 0; a < 360; ++a) {
-        for (uint16_t r = 0; r < x_max; ++r) {
-            gm_rx_[i] = r * gm_cos_[a];
-            gm_ry_[i] = r * gm_sin_[a];
-            i++;
-        }
-    }
-
-    gm_max_x_ = x_max;
-
-    ii("init ok, %zu bytes allocated for pre-multiplied values\n", size);
+    ii("init ok\n");
 }
 
 void gm_close(void)
 {
-	free(gm_rx_);
-	free(gm_ry_);
 }
