@@ -23,17 +23,32 @@ static uint16_t w_;
 static uint16_t h_;
 static uint8_t fbook_;
 
+#ifdef ANDROID
+static GLenum textype_ = GL_TEXTURE_EXTERNAL_OES;
+#else
+static GLenum textype_ = GL_TEXTURE_2D;
+#endif
+
 static const uint8_t indices_[] = {
 	0, 1, 2,
 	2, 3, 0,
 };
 
+#ifdef ANDROID
 static const float verts_[] = {
-	-1, 1,
-	1, 1,
-	1, -1,
+	-1, +1,
+	+1, +1,
+	+1, -1,
 	-1, -1,
 };
+#else
+static const float verts_[] = {
+	+1, -1,
+	+1, +1,
+	-1, +1,
+	-1, -1,
+};
+#endif
 
 static const float offscr_verts_[] = {
 	-1, -1,
@@ -89,11 +104,17 @@ void bg_close(void)
 int bg_open(void)
 {
 	const char *fsrc =
+#ifdef ANDROID
 		"#extension GL_OES_EGL_image_external : require\n"
-		"precision highp float;\n"
+#endif
+		"precision lowp float;\n"
 		"varying vec2 v_uv;\n"
 		"uniform int u_grey;\n"
+#ifdef ANDROID
 		"uniform samplerExternalOES u_tex;\n"
+#else
+		"uniform sampler2D u_tex;\n"
+#endif
 		"void main() {\n"
 			"if (u_grey==0) {\n"
 				"gl_FragColor=texture2D(u_tex,v_uv);\n"
@@ -104,7 +125,7 @@ int bg_open(void)
 #else /* perceived luminance */
 				"float y=.299*rgb.r+.587*rgb.g+.114*rgb.b;\n"
 #endif
-				"gl_FragColor=vec4(y,y,y,1)*1.5;\n"
+				"gl_FragColor=vec4(y,y,y,1);\n"
 			"}\n"
 		"}\0";
 
@@ -122,11 +143,9 @@ int bg_open(void)
 		return -1;
 	}
 
-	glBindTexture(GL_TEXTURE_EXTERNAL_OES, texid_);
-	glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER,
-	  GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER,
-	  GL_LINEAR);
+	glBindTexture(textype_, texid_);
+	glTexParameteri(textype_, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(textype_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	glUseProgram(prog_);
 
@@ -150,7 +169,7 @@ void bg_render(uint8_t grey)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	gl_disable_features();
 
-	glBindTexture(GL_TEXTURE_EXTERNAL_OES, texid_);
+	glBindTexture(textype_, texid_);
 	glUseProgram(prog_);
 	glUniform1i(u_grey_, grey);
 	glVertexAttribPointer(a_pos_, 2, GL_FLOAT, GL_FALSE, 0, vertices_);
@@ -163,7 +182,7 @@ void bg_render(uint8_t grey)
 
 	glDisableVertexAttribArray(a_uv_);
 	glDisableVertexAttribArray(a_pos_);
-	glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
+	glBindTexture(textype_, 0);
 
 	gl_enable_features();
 }
