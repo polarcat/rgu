@@ -250,6 +250,9 @@ static int init_scene(void)
 
 	cv_open(font0_, font1_, CV_BLOCK);
 	texid_ = bg_open();
+
+	bg_resize(bmp_.w, bmp_.h);
+	cv_resize(bmp_.w, bmp_.h);
 }
 
 static int init_context(void)
