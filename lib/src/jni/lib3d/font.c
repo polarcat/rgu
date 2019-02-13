@@ -245,7 +245,7 @@ void font_close(struct font **ptr)
 	font->asset = NULL;
 #else
 	if (font->data_buf) {
-		munmap(font->data_buf, font->data_len);
+		munmap((void *) font->data_buf, font->data_len);
 		font->data_buf = NULL;
 	}
 

@@ -8,6 +8,7 @@
 #ifdef ANDROID
 #include <android/asset_manager_jni.h>
 #else
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -150,18 +151,18 @@ uint8_t img_open(void *assets)
 #else
 	struct stat st;
 
-	if (stat(path, &st) < 0) {
+	if (stat(BG_IMAGE, &st) < 0) {
 		ee("failed to stat file %s\n", BG_IMAGE);
 		return 0;
 	}
 
-	if ((fd = open(path, O_RDONLY)) < 0) {
+	if ((fd = open(BG_IMAGE, O_RDONLY)) < 0) {
 		ee("failed to open file %s\n", BG_IMAGE);
 		return 0;
 	}
 
 	buf = (uint8_t *) mmap(NULL, st.st_size, PROT_READ,
-	  MAP_PRIVATE, font->fd, 0);
+	  MAP_PRIVATE, fd, 0);
 
 	if (!buf) {
 		ee("failed to map file %s\n", BG_IMAGE);
@@ -182,7 +183,7 @@ uint8_t img_open(void *assets)
 
 #ifndef ANDROID
 	if (len)
-		munmap(buf, len);
+		munmap((void *) buf, len);
 	else if (fd >= 0)
 		close(fd);
 #endif
