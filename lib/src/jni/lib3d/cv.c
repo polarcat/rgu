@@ -33,8 +33,10 @@ static struct pip_prog debug_view_;
 
 #ifdef HAVE_ALGO
 void process_image(uint8_t *buf, uint16_t w, uint16_t h);
+void process_touch(uint16_t x, uint16_t y);
 #else
 #define process_image(a, b, c) ;
+#define process_touch(x, y) ;
 #endif
 
 static uint8_t job_done_;
@@ -127,6 +129,8 @@ void cv_touch(uint16_t x, uint16_t y)
 	touch_y_ = y;
 
 	unlock_touch();
+
+	process_touch(touch_x_, touch_y_);
 }
 
 void cv_open(struct font *f0, struct font *f1, uint8_t async)
