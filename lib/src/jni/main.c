@@ -77,11 +77,8 @@ static xcb_screen_t *scr_;
 static xcb_drawable_t win_;
 static xcb_key_symbols_t *syms_;
 
-static uint16_t w_ = 768;
-static uint16_t h_ = 576;
-static uint8_t back_;
 static uint8_t done_;
-static uint8_t stop_;
+static uint8_t pause_;
 
 static EGLSurface surf_;
 static EGLContext ctx_;
@@ -126,11 +123,9 @@ static void handle_button_press(xcb_button_press_event_t *e)
 {
 	switch (e->detail) {
 	case MOUSE_BTN_LEFT:
-		back_ = 0;
 		break;
 	case MOUSE_BTN_MID: /* fall through */
 	case MOUSE_BTN_RIGHT:
-		back_ = 1;
 		break;
 	case MOUSE_BTN_FWD:
 		break;
@@ -138,17 +133,6 @@ static void handle_button_press(xcb_button_press_event_t *e)
 		break;
 	default:
 		break;
-	}
-}
-
-static void pause_sampling(void)
-{
-	if (stop_) {
-		ii("cont sampling\n");
-		stop_ = 0;
-	} else {
-		ii("stop sampling\n");
-		stop_ = 1;
 	}
 }
 
@@ -173,10 +157,14 @@ static void handle_key_press(xcb_key_press_event_t *e)
 	} else if (sym == XK_Prior) {
 	} else if (sym == XK_Return) {
 	} else if (sym == XK_space) {
-		back_ = 0;
-		pause_sampling();
+		if (pause_) {
+			dd("continue\n");
+			pause_ = 0;
+		} else {
+			dd("pause\n");
+			pause_ = 1;
+		}
 	} else if (sym == XK_BackSpace) {
-		back_ = 1;
 	} else {
 		return;
 	}
@@ -228,8 +216,7 @@ static uint8_t events(uint8_t poll)
 	}
 
 out:
-
-	if (refresh || poll) {
+	if (!pause_ && (refresh || poll)) {
 		render();
 		eglSwapBuffers(egl_, surf_);
 	}
@@ -242,10 +229,10 @@ out:
 
 static int init_scene(void)
 {
-	if (!(font0_ = font_open(FONT_PATH, 64, NULL)))
+	if (!(font0_ = font_open(FONT_PATH, 36, NULL)))
 		return -1;
 
-	if (!(font1_ = font_open(FONT_PATH, 128, NULL)))
+	if (!(font1_ = font_open(FONT_PATH, 48, NULL)))
 		return -1;
 
 	cv_open(font0_, font1_, CV_BLOCK);
@@ -306,8 +293,8 @@ static int init_context(void)
 	val[1] |= XCB_EVENT_MASK_RESIZE_REDIRECT;
 
 	xcb_create_window(dpy_, XCB_COPY_FROM_PARENT, win_, scr_->root, 0, 0,
-	  w_, h_, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, scr_->root_visual, mask,
-	  val);
+	  bmp_.w, bmp_.h, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, scr_->root_visual,
+	  mask, val);
 
 	xcb_change_property(dpy_, XCB_PROP_MODE_REPLACE, win_, XCB_ATOM_WM_NAME,
 	  XCB_ATOM_STRING, 8, sizeof("opengl") - 1, "opengl");
