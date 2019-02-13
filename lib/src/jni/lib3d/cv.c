@@ -24,6 +24,10 @@
 #include "draw.h"
 #include "plotter.h"
 
+#ifndef GRAYSCALE
+#define GRAYSCALE 1
+#endif
+
 //#define DEBUG_VIEW
 
 #ifdef DEBUG_VIEW
@@ -184,7 +188,7 @@ void cv_render(void)
 	lock_job_state();
 
 	if (img_ && job_done_) {
-		bg_render_offscreen(img_, img_w_, img_h_, 1);
+		bg_render_offscreen(img_, img_w_, img_h_, GRAYSCALE);
 		job_done_ = 0;
 	}
 
