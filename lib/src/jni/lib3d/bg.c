@@ -50,12 +50,21 @@ static const float verts_[] = {
 };
 #endif
 
+#ifdef ANDROID
 static const float offscr_verts_[] = {
 	-1, -1,
 	1, -1,
 	1, 1,
 	-1, 1,
 };
+#else
+static const float offscr_verts_[] = {
+	1, 1,
+	1, -1,
+	-1, -1,
+	-1, 1,
+};
+#endif
 
 static const float *vertices_ = verts_;
 
