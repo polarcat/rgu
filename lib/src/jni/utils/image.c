@@ -160,8 +160,10 @@ uint8_t readpng(const char *path, struct image *img)
 
 	if (png_get_color_type(png, info) == PNG_COLOR_TYPE_RGBA) {
 		n = 4;
+		img->format = GL_RGBA;
 	} else if (png_get_color_type(png, info) == PNG_COLOR_TYPE_RGB) {
 		n = 3;
+		img->format = GL_RGB;
 	} else {
 		ee("unsupported color type, expect RGB\n");
 		goto out;
@@ -169,8 +171,7 @@ uint8_t readpng(const char *path, struct image *img)
 
 	img->w = png_get_image_width(png, info);
 	img->h = png_get_image_height(png, info);
-	img->format = GL_RGBA;
-	size = img->w * img->h * 4;
+	size = img->w * img->h * n;
 
 	ii("image %ux%u components %u bytes %zu\n", img->w, img->h, n, size);
 
@@ -190,13 +191,12 @@ uint8_t readpng(const char *path, struct image *img)
 			*dst++ = *row++;
 			*dst++ = *row++;
 			*dst++ = *row++;
-			*dst++ = 0; /* alpha */
 
 			if (n == 4)
-				row++;
+				*dst++ = row++;
 		}
 
-		dst = img->data + 4 * img->w * y;
+		dst = img->data + n * img->w * y;
 	}
 
 	rc = 1;
@@ -266,8 +266,10 @@ uint8_t buf2png(const uint8_t *buf, struct image *img)
 
     if (png_get_color_type(png, info) == PNG_COLOR_TYPE_RGBA) {
 	n = 4;
+	img->format = GL_RGBA;
     } else if (png_get_color_type(png, info) == PNG_COLOR_TYPE_RGB) {
 	n = 3;
+	img->format = GL_RGB;
     } else {
 	ee("unsupported color type, expect RGB\n");
 	goto out;
@@ -276,7 +278,7 @@ uint8_t buf2png(const uint8_t *buf, struct image *img)
     uint16_t w = png_get_image_width(png, info);
     uint16_t h = png_get_image_height(png, info);
 
-    retsize = w * h * 3;
+    retsize = w * h * n;
 
     ii("image %ux%u components %u | need %zu bytes\n", w, h, n, retsize);
 
@@ -297,16 +299,15 @@ uint8_t buf2png(const uint8_t *buf, struct image *img)
 	    *dst++ = *row++;
 
 	    if (n == 4)
-		row++;
+		*dst++ = row++;
 	}
 
-	dst = ret + 3 * w * y;
+	dst = ret + n * w * y;
     }
 
     img->data = ret;
     img->w = w;
     img->h = h;
-    img->format = GL_RGB;
 
 out:
     if (png && info)
