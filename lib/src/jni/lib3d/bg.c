@@ -41,28 +41,42 @@ static const float verts_[] = {
 	+1, -1,
 	-1, -1,
 };
-#else
+#elif defined FRONT_CAMERA
 static const float verts_[] = {
 	+1, -1,
 	+1, +1,
 	-1, +1,
 	-1, -1,
 };
+#else
+static const float verts_[] = {
+	-1, -1,
+	-1, +1,
+	+1, +1,
+	+1, -1,
+};
 #endif
 
 #ifdef ANDROID
 static const float offscr_verts_[] = {
 	-1, -1,
-	1, -1,
-	1, 1,
-	-1, 1,
+	+1, -1,
+	+1, +1,
+	-1, +1,
+};
+#elif defined FRONT_CAMERA
+static const float offscr_verts_[] = {
+	+1, +1,
+	+1, -1,
+	-1, -1,
+	-1, +1,
 };
 #else
 static const float offscr_verts_[] = {
-	1, 1,
-	1, -1,
+	-1, +1,
 	-1, -1,
-	-1, 1,
+	+1, -1,
+	+1, +1,
 };
 #endif
 
