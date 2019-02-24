@@ -9,7 +9,7 @@
 
 #include <stdint.h>
 
-int img_open(void *assets);
+int img_open(const char *path, void *assets);
 void img_close(void);
 void img_render(void);
 void img_resize(uint16_t w, uint16_t h);

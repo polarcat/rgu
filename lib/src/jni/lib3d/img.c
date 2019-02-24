@@ -119,11 +119,7 @@ static void upload_image(struct image *img)
 	  verts_[6], verts_[7]);
 }
 
-#ifndef BG_IMAGE
-#define BG_IMAGE "images/bg.png"
-#endif
-
-uint8_t img_open(void *assets)
+uint8_t img_open(const char *path, void *assets)
 {
 	struct image img;
 	const uint8_t *buf;
@@ -138,11 +134,11 @@ uint8_t img_open(void *assets)
 		return 0;
 	}
 
-	asset = AAssetManager_open((AAssetManager *) assets, BG_IMAGE,
+	asset = AAssetManager_open((AAssetManager *) assets, path,
 	  AASSET_MODE_BUFFER);
 
 	if (!asset) {
-		ee("failed to open assets " BG_IMAGE "\n");
+		ee("failed to open assets at '%s'\n", path);
 		return 0;
 	}
 
@@ -151,13 +147,13 @@ uint8_t img_open(void *assets)
 #else
 	struct stat st;
 
-	if (stat(BG_IMAGE, &st) < 0) {
-		ee("failed to stat file %s\n", BG_IMAGE);
+	if (stat(path, &st) < 0) {
+		ee("failed to stat file '%s'\n", path);
 		return 0;
 	}
 
-	if ((fd = open(BG_IMAGE, O_RDONLY)) < 0) {
-		ee("failed to open file %s\n", BG_IMAGE);
+	if ((fd = open(path, O_RDONLY)) < 0) {
+		ee("failed to open file '%s'\n", path);
 		return 0;
 	}
 
@@ -165,7 +161,7 @@ uint8_t img_open(void *assets)
 	  MAP_PRIVATE, fd, 0);
 
 	if (!buf) {
-		ee("failed to map file %s\n", BG_IMAGE);
+		ee("failed to map file '%s'\n", path);
 		close(fd);
 		return 0;
 	}
@@ -188,7 +184,7 @@ uint8_t img_open(void *assets)
 		close(fd);
 #endif
 
-	ii("background image " BG_IMAGE " init ok, texture %u\n", texid_);
+	ii("background init ok, texture %u image '%s'\n", texid_, path);
 
 	return texid_;
 }

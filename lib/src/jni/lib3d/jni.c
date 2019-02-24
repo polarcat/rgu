@@ -32,6 +32,7 @@ static sem_t run_;
 static uint8_t pause_;
 
 //#define FRAME_BY_FRAME
+//#define IMAGE_VIEWER
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,9 +54,8 @@ jnicall(int, open, JNIEnv *env, jclass class, jobject asset_manager)
 	sem_init(&run_, 0, 0);
 
 #ifdef IMAGE_VIEWER
-#error "IMAGE_VIEWER"
 	sb_open(font0_, font1_, CV_BLOCK);
-	return img_open(AAssetManager_fromJava(env, asset_manager));
+	return img_open("images/bg.png", AAssetManager_fromJava(env, asset_manager));
 #else
 	cv_open(font0_, font1_, CV_BLOCK);
 	return bg_open();
