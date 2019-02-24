@@ -193,7 +193,7 @@ uint8_t readpng(const char *path, struct image *img)
 			*dst++ = *row++;
 
 			if (n == 4)
-				*dst++ = row++;
+				*dst++ = *row++;
 		}
 
 		dst = img->data + n * img->w * y;
@@ -299,7 +299,7 @@ uint8_t buf2png(const uint8_t *buf, struct image *img)
 			*dst++ = *row++;
 
 			if (n == 4)
-				*dst++ = row++;
+				*dst++ = *row++;
 		}
 
 		dst = ret + n * w * y;
