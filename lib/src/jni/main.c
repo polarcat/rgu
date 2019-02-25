@@ -110,7 +110,7 @@ static void render(void)
 	  GL_UNSIGNED_BYTE, bmp_.data);
 
 	bg_render(0);
-	cv_render();
+//	cv_render();
 }
 
 static void handle_resize(xcb_resize_request_event_t *e)
@@ -227,27 +227,13 @@ out:
 	return rc;
 }
 
-static int init_scene(void)
-{
-	if (!(font0_ = font_open(FONT_PATH, 36, NULL)))
-		return -1;
-
-	if (!(font1_ = font_open(FONT_PATH, 48, NULL)))
-		return -1;
-
-	cv_open(font0_, font1_, CV_BLOCK);
-	texid_ = bg_open();
-
-	bg_resize(bmp_.w, bmp_.h);
-	cv_resize(bmp_.w, bmp_.h);
-}
-
-static int init_context(void)
+static uint8_t create_window(uint16_t w, uint16_t h)
 {
 	uint32_t mask;
 	uint32_t val[2];
 	int num;
 	EGLConfig cfg;
+	xcb_window_t old_win = win_;
 
 	static const EGLint attrs[] = {
 		EGL_RED_SIZE, 1,
@@ -263,20 +249,11 @@ static int init_context(void)
 		EGL_NONE
 	};
 
-	if (!(dpy_ = xcb_connect(NULL, NULL))) {
-		ee("xcb_connect() failed\n");
-		return 1;
-	}
-
-	if (!(syms_ = xcb_key_symbols_alloc(dpy_)))
-		ee("xcb_key_symbols_alloc() failed\n");
-
-	scr_ = xcb_setup_roots_iterator(xcb_get_setup(dpy_)).data;
 	num = DefaultScreen(dpy_);
 
 	if (!eglChooseConfig(egl_, attrs, &cfg, 1, &num)) {
 		ee("eglChooseConfig() failed\n");
-		return -1;
+		return 0;
 	}
 
 	win_ = xcb_generate_id(dpy_);
@@ -293,7 +270,7 @@ static int init_context(void)
 	val[1] |= XCB_EVENT_MASK_RESIZE_REDIRECT;
 
 	xcb_create_window(dpy_, XCB_COPY_FROM_PARENT, win_, scr_->root, 0, 0,
-	  bmp_.w, bmp_.h, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, scr_->root_visual,
+	  w, h, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, scr_->root_visual,
 	  mask, val);
 
 	xcb_change_property(dpy_, XCB_PROP_MODE_REPLACE, win_, XCB_ATOM_WM_NAME,
@@ -307,22 +284,81 @@ static int init_context(void)
 
 	eglBindAPI(EGL_OPENGL_ES_API);
 
-	if (!(ctx_ = eglCreateContext(egl_, cfg, EGL_NO_CONTEXT, ctx_attrs))) {
-		printf("Error: eglCreateContext failed\n");
-		return -1;
+	if (!ctx_ && !(ctx_ = eglCreateContext(egl_, cfg, EGL_NO_CONTEXT, ctx_attrs))) {
+		ee("Error: eglCreateContext failed\n");
+		return 0;
 	}
 
+	if (surf_)
+		eglDestroySurface(egl_, surf_);
+
 	if (!(surf_ = eglCreateWindowSurface(egl_, cfg, win_, NULL))) {
-		printf("Error: eglCreateWindowSurface failed\n");
-		return -1;
+		ee("Error: eglCreateWindowSurface failed\n");
+		return 0;
 	}
 
 	if (!eglMakeCurrent(egl_, surf_, surf_, ctx_)) {
 		ee("eglMakeCurrent() failed\n");
-		return 1;
+		return 0;
 	}
 
+	if (old_win != XCB_WINDOW_NONE) {
+		xcb_destroy_window(dpy_, old_win);
+		xcb_flush(dpy_);
+	}
+
+	return 1;
+}
+
+static void resize_window(uint16_t w, uint16_t h)
+{
+	/* since xcb resize request does not work well with gl windows just
+	 * re-create one with new size */
+
+	create_window(w, h);
+	ii("created win %#x with new size %u,%u\n", win_, w, h);
+}
+
+static int init_scene(const char *path)
+{
+	if (!(font0_ = font_open(FONT_PATH, 36, NULL)))
+		return -1;
+
+	if (!(font1_ = font_open(FONT_PATH, 48, NULL)))
+		return -1;
+
+	cv_open(font0_, font1_, CV_BLOCK);
+#ifdef STATIC_BG
+	texid_ = bg_open(path, NULL, &bmp_.w, &bmp_.h);
+	resize_window(bmp_.w, bmp_.h);
+#else
+	texid_ = bg_open();
+#endif
+
+	bg_resize(bmp_.w, bmp_.h);
+	cv_resize(bmp_.w, bmp_.h);
+
 	return 0;
+}
+
+static uint8_t init_display(void)
+{
+	if (!(dpy_ = xcb_connect(NULL, NULL))) {
+		ee("xcb_connect() failed\n");
+		return 0;
+	}
+
+	if (!(syms_ = xcb_key_symbols_alloc(dpy_)))
+		ee("xcb_key_symbols_alloc() failed\n");
+
+	scr_ = xcb_setup_roots_iterator(xcb_get_setup(dpy_)).data;
+	return 1;
+}
+
+static void image_loop(void)
+{
+	while (!done_)
+		events(0);
 }
 
 static void video_loop(const char *argv[], struct fileinfo *info)
@@ -466,20 +502,32 @@ int main(int argc, const char *argv[])
 	struct fileinfo info;
 	const char *path = VIDEO_DEV;
 
+#ifdef STATIC_BG
+	if (argc == 2) {
+		path = argv[1];
+		bmp_.w = bmp_.h = 100;
+	} else {
+		ii("Usage: %s <image>\n", argv[0]);
+		exit(1);
+	}
+#else
 	if (argc == 2) {
 		path = argv[1];
 	} else {
 		path = VIDEO_DEV;
 		ii("Usage: %s <dev> (default %s)\n", argv[0], path);
 	}
+#endif
 
 	if (stat(path, &st) < 0) {
 		ee("failed to stat '%s'\n", path);
 		return 1;
 	}
 
+#ifndef STATIC_BG
 	if (!init_device(path, &st, &info))
 		return 1;
+#endif
 
 	if (!(egl_ = eglGetDisplay(EGL_DEFAULT_DISPLAY))) {
 		ee("eglGetDisplay() failed\n");
@@ -496,18 +544,27 @@ int main(int argc, const char *argv[])
 	ii("EGL_EXTENSIONS = %s\n", eglQueryString(egl_, EGL_EXTENSIONS));
 	ii("EGL_CLIENT_APIS = %s\n", eglQueryString(egl_, EGL_CLIENT_APIS));
 
-	if (init_context() < 0)
+	if (!init_display())
 		return 1;
+
+	if (!create_window(bmp_.w, bmp_.h))
+		return 1;
+
+	ii("created win %#x size %u,%u\n", win_, bmp_.w, bmp_.h);
 
 	ii("GL_RENDERER = %s\n", (char *) glGetString(GL_RENDERER));
 	ii("GL_VERSION = %s\n", (char *) glGetString(GL_VERSION));
 	ii("GL_VENDOR = %s\n", (char *) glGetString(GL_VENDOR));
 	ii("GL_EXTENSIONS = %s\n", (char *) glGetString(GL_EXTENSIONS));
 
-	if (init_scene() < 0)
+	if (init_scene(path) < 0)
 		return 1;
 
+#ifdef STATIC_BG
+	image_loop();
+#else
 	video_loop(argv, &info);
+#endif
 
 	eglDestroyContext(egl_, ctx_);
 	eglDestroySurface(egl_, surf_);
