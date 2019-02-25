@@ -83,7 +83,6 @@ void writepng(const char *path, const uint8_t *buf, uint16_t w, uint16_t h)
 			*row++ = *buf++;
 			*row++ = *buf++;
 			*row++ = *buf++;
-			buf++;
 		}
 	}
 
