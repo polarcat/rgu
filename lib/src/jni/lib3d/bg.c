@@ -8,8 +8,20 @@
 #define TAG "bg"
 
 #include <utils/log.h>
+#include <utils/image.h>
+
+#ifdef ANDROID
+#include <android/asset_manager_jni.h>
+#else
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#endif
 
 #include "gl.h"
+#include "gm.h"
 
 static GLuint fbo_;
 static GLuint img_;
@@ -23,7 +35,11 @@ static uint16_t w_;
 static uint16_t h_;
 static uint8_t fbook_;
 
-#ifdef ANDROID
+#if !defined(STATIC_BG) && defined(ANDROID)
+#define EGL_IMAGE
+#endif
+
+#ifdef EGL_IMAGE
 static GLenum textype_ = GL_TEXTURE_EXTERNAL_OES;
 #else
 static GLenum textype_ = GL_TEXTURE_2D;
@@ -89,6 +105,90 @@ static const float coords_[] = {
 	1, 1,
 };
 
+#ifndef STATIC_BG
+#define upload_image(a) ;
+#define open_image(a, b, c, d) ;
+#else
+static void upload_image(struct image *img)
+{
+	glGenTextures(1, &texid_);
+	glBindTexture(GL_TEXTURE_2D, texid_);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, img->format, img->w, img->h, 0,
+	  img->format, GL_UNSIGNED_BYTE, img->data);
+	gl_error("glGenTextures(1, &texid_);");
+}
+
+static uint8_t open_image(const char *path, void *assets, uint16_t *w,
+  uint16_t *h)
+{
+	struct image img;
+	const uint8_t *buf;
+	size_t len = 0;
+	int fd = -1;
+
+#ifdef ANDROID
+	AAsset *asset;
+
+	if (!assets) {
+		ee("bad assets manager\n");
+		return 0;
+	}
+
+	asset = AAssetManager_open((AAssetManager *) assets, path,
+	  AASSET_MODE_BUFFER);
+
+	if (!asset) {
+		ee("failed to open assets at '%s'\n", path);
+		return 0;
+	}
+
+	buf = (const uint8_t *) AAsset_getBuffer(asset);
+	len = AAsset_getLength(asset);
+#else
+	struct stat st;
+
+	if (stat(path, &st) < 0) {
+		ee("failed to stat file '%s'\n", path);
+		return 0;
+	}
+
+	if ((fd = open(path, O_RDONLY)) < 0) {
+		ee("failed to open file '%s'\n", path);
+		return 0;
+	}
+
+	buf = (uint8_t *) mmap(NULL, st.st_size, PROT_READ,
+	  MAP_PRIVATE, fd, 0);
+
+	if (!buf) {
+		ee("failed to map file '%s'\n", path);
+		close(fd);
+		return 0;
+	}
+#endif
+
+	if (buf2png(buf, &img))
+		upload_image(&img);
+
+#ifndef ANDROID
+	if (len)
+		munmap((void *) buf, len);
+	else if (fd >= 0)
+		close(fd);
+#endif
+
+	ii("background init ok, texture %u image '%s'\n", texid_, path);
+
+	*w = img.w;
+	*h = img.h;
+
+	return texid_;
+}
+#endif
+
 static inline uint8_t prepare_offscreen(uint8_t *buf, uint16_t w, uint16_t h)
 {
 	ii("prepare fbo %u; offscreen texture %u buffer at %p\n", fbo_, img_,
@@ -124,16 +224,22 @@ void bg_close(void)
 	glDeleteProgram(prog_);
 }
 
+#ifdef STATIC_BG
+int bg_open(const char *path, void *assets, uint16_t *w, uint16_t *h)
+#else
 int bg_open(void)
+#endif
 {
+	open_image(path, assets, w, h);
+
 	const char *fsrc =
-#ifdef ANDROID
+#ifdef EGL_IMAGE
 		"#extension GL_OES_EGL_image_external : require\n"
 #endif
 		"precision lowp float;\n"
 		"varying vec2 v_uv;\n"
 		"uniform int u_grey;\n"
-#ifdef ANDROID
+#ifdef EGL_IMAGE
 		"uniform samplerExternalOES u_tex;\n"
 #else
 		"uniform sampler2D u_tex;\n"
