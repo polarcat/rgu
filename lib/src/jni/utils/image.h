@@ -5,6 +5,8 @@
  * Released under the GNU General Public License, version 2
  */
 
+#pragma once
+
 #include <stdint.h>
 #include <GLES2/gl2.h>
 
