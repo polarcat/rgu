@@ -12,6 +12,16 @@
 
 #include "gm.h"
 
+union geometry {
+	int data[4];
+	struct {
+		int x;
+		int y;
+		int w;
+		int h;
+	};
+};
+
 struct round_rect_req {
     uint8_t roundness;
     float corner_radius;
