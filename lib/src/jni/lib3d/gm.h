@@ -70,6 +70,31 @@ union gm_plane3 {
 	};
 };
 
+union gm_mat4 { /* column-major */
+	float data[16];
+	struct {
+		float sx;
+		float a1;
+		float a2;
+		float a3;
+
+		float a4;
+		float sy;
+		float a6;
+		float a7;
+
+		float a8;
+		float a9;
+		float sz;
+		float a11;
+
+		float x;
+		float y;
+		float z;
+		float w;
+	};
+};
+
 /* NB: column major */
 
 #define gm_trans_x(m) (m)[11]
