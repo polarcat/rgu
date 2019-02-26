@@ -95,18 +95,6 @@ union gm_mat4 { /* column-major */
 	};
 };
 
-/* NB: column major */
-
-#define gm_trans_x(m) (m)[11]
-#define gm_trans_y(m) (m)[13]
-#define gm_trans_z(m) (m)[14]
-
-#define gm_scale_x(m) (m)[0]
-#define gm_scale_y(m) (m)[5]
-#define gm_scale_z(m) (m)[10]
-
-#define gm_pow2(a) ((a) * (a))
-
 /* marix4 ops */
 
 void gm_mat4_identity(float m[16]);
