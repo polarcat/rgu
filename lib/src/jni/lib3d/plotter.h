@@ -27,6 +27,8 @@ void plot_text0_ndc(float x, float y, const char *str, size_t len,
   uint32_t fg, uint32_t bg);
 void plot_text1(uint16_t x, uint16_t y, const char *str, size_t len,
   uint32_t fg, uint32_t bg);
+void plot_text1_ndc(float x, float y, const char *str, size_t len,
+  uint32_t fg, uint32_t bg);
 
 void plot_text(const char *str, uint16_t len);
 

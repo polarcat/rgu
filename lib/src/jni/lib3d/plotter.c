@@ -430,6 +430,19 @@ void plot_text0(uint16_t x, uint16_t y, const char *str, size_t len,
 	gl_enable_features();
 }
 
+void plot_text1_ndc(float x, float y, const char *str, size_t len,
+  uint32_t fg, uint32_t bg)
+{
+	gl_disable_features();
+
+	if (async_)
+		font_render_async(font1_, str, len, x, y, fg, bg);
+	else
+		font_render(font1_, str, len, x, y, fg, bg);
+
+	gl_enable_features();
+}
+
 void plot_text1(uint16_t x, uint16_t y, const char *str, size_t len,
   uint32_t fg, uint32_t bg)
 {
