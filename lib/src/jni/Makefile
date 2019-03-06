@@ -11,6 +11,9 @@ lib3d/pip.c \
 lib3d/cv.c \
 lib3d/sb.c \
 lib3d/plotter.c \
+lib3d/tools.c \
+lib3d/icon.c \
+lib3d/game.c \
 utils/image.c \
 utils/sensors.c \
 
