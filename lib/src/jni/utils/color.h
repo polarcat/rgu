@@ -9,6 +9,25 @@
 
 #include <stdint.h>
 
+union color_rgb {
+	float data[3];
+	struct {
+		float r;
+		float g;
+		float b;
+	};
+};
+
+union color_rgba {
+	float data[4];
+	struct {
+		float r;
+		float g;
+		float b;
+		float a;
+	};
+};
+
 void rgb2hsi(uint8_t r, uint8_t g, uint8_t b, float *h, float *s, float *i);
 uint8_t rgb2hsv(uint8_t r, uint8_t g, uint8_t b, float *h, float *s, float *v);
 
