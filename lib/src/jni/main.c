@@ -24,12 +24,17 @@
 #include <utils/log.h>
 #include <utils/sensors.h>
 
-#include "cv.h"
 #include "sb.h"
 #include "gl.h"
 #include "bg.h"
 #include "img.h"
 #include "font.h"
+
+#ifdef STATIC_BG
+#include "game.h"
+#else
+#include "cv.h"
+#endif
 
 #define MOUSE_BTN_LEFT 1
 #define MOUSE_BTN_MID 2
@@ -104,19 +109,28 @@ static uint8_t devreq(int req, void *arg)
 
 static void render(void)
 {
+#ifdef STATIC_BG
+	bg_render(0);
+	game_render();
+#else
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texid_);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, bmp_.w, bmp_.h, 0, GL_RGB,
 	  GL_UNSIGNED_BYTE, bmp_.data);
 
 	bg_render(0);
-//	cv_render();
+	cv_render();
+#endif
 }
 
 static void handle_resize(xcb_resize_request_event_t *e)
 {
 	bg_resize(e->width, e->height);
+#ifdef STATIC_BG
+	game_resize(e->width, e->height);
+#else
 	cv_resize(e->width, e->height);
+#endif
 }
 
 static void handle_button_press(xcb_button_press_event_t *e)
@@ -319,6 +333,8 @@ static void resize_window(uint16_t w, uint16_t h)
 	ii("created win %#x with new size %u,%u\n", win_, w, h);
 }
 
+#include "tools.h"
+
 static int init_scene(const char *path)
 {
 	if (!(font0_ = font_open(FONT_PATH, 36, NULL)))
@@ -327,16 +343,18 @@ static int init_scene(const char *path)
 	if (!(font1_ = font_open(FONT_PATH, 48, NULL)))
 		return -1;
 
-	cv_open(font0_, font1_, CV_BLOCK);
 #ifdef STATIC_BG
 	texid_ = bg_open(path, NULL, &bmp_.w, &bmp_.h);
 	resize_window(bmp_.w, bmp_.h);
+	bg_resize(bmp_.w, bmp_.h);
+	game_open(font0_, font1_, NULL);
+	game_resize(bmp_.w, bmp_.h);
 #else
+	bg_resize(bmp_.w, bmp_.h);
+	cv_open(font0_, font1_, CV_BLOCK);
+	cv_resize(bmp_.w, bmp_.h);
 	texid_ = bg_open();
 #endif
-
-	bg_resize(bmp_.w, bmp_.h);
-	cv_resize(bmp_.w, bmp_.h);
 
 	return 0;
 }
@@ -357,8 +375,10 @@ static uint8_t init_display(void)
 
 static void image_loop(void)
 {
-	while (!done_)
-		events(0);
+	while (!done_) {
+		events(1);
+		sleep_ms(16);
+	}
 }
 
 static void video_loop(const char *argv[], struct fileinfo *info)
@@ -587,7 +607,11 @@ int main(int argc, const char *argv[])
 	font_close(&font1_);
 
 	bg_close();
+#ifdef STATIC_BG
+	game_close();
+#else
 	cv_close();
+#endif
 
 	return 0;
 }
