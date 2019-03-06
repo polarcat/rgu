@@ -49,4 +49,5 @@ struct round_rect {
  * */
 
 uint8_t make_round_rect(uint8_t rn, float r, struct round_rect *rect);
+uint8_t make_round_icon(uint8_t rn, float r, struct round_rect *rect);
 void clean_round_rect(struct round_rect *rect);
