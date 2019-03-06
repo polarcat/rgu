@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 struct lines {
 	uint32_t count;
 	float *coords;
