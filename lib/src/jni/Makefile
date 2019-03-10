@@ -17,6 +17,12 @@ lib3d/game.c \
 utils/image.c \
 utils/sensors.c \
 
+game = game/sources.mk
+
+ifneq ("$(wildcard $(game))","")
+include $(game)
+endif
+
 flags = -I. -Ilib3d -DASSETS="\"../main/assets/\"" -DHAVE_ALGO
 libs = -lxcb -lxcb-keysyms -lEGL -lGLESv2 -lm -lpng -ljpeg -lv4l2
 
