@@ -392,17 +392,12 @@ float gm_line_angle(const union gm_line *l, uint8_t perp)
 	}
 }
 
-void gm_line_perp(union gm_line *l)
+void gm_line_perp(union gm_line *in, union gm_line *out)
 {
-	float x = l->x0;
-	float y = l->y0;
-
-	l->x0 = y;
-	l->y0 = -x;
-	x = l->x1;
-	y = l->y1;
-	l->x1 = y;
-	l->y1 = -x;
+	out->x0 = in->y0;
+	out->y0 = -in->x0;
+	out->x1 = in->y1;
+	out->y1 = -in->x1;
 }
 
 void gm_reflect_line(union gm_line *l)

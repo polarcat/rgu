@@ -38,6 +38,8 @@ union gm_line {
 		float cx;
 		float cy;
 	};
+	union gm_point2 p0;
+	union gm_point2 p1;
 };
 
 union gm_vec2 {
@@ -139,7 +141,7 @@ float gm_line_fx(const union gm_line *l, float x);
 float gm_perp_fx(const union gm_line *l, float x);
 float gm_line_angle(const union gm_line *l, uint8_t perp);
 float gm_line_len(union gm_line *l);
-void gm_line_perp(union gm_line *l);
+void gm_line_perp(union gm_line *in, union gm_line *out);
 void gm_reflect_line(union gm_line *l);
 void gm_line_center(union gm_line *l);
 void gm_line_div2(union gm_line *l);
