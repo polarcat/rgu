@@ -24,13 +24,7 @@
 #include "plotter.h"
 
 #ifdef HAVE_GAME
-void handle_setup(void *assets);
-void handle_frame(void);
-void handle_touch(uint16_t x, uint16_t y);
-#else
-#define handle_setup(a) ;
-#define handle_frame() ;
-#define handle_touch(x, y) ;
+#include <game/game.h>
 #endif
 
 static uint8_t resize_;
@@ -128,9 +122,3 @@ void game_render(void)
 	draw_axis();
 	handle_frame();
 }
-
-/* this should provide actual implementation of a game */
-
-#ifdef HAVE_GAME
-#include <game/game.h>
-#endif
