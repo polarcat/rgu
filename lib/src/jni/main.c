@@ -82,6 +82,7 @@ static xcb_screen_t *scr_;
 static xcb_drawable_t win_;
 static xcb_key_symbols_t *syms_;
 
+static uint8_t rgba_;
 static uint8_t done_;
 static uint8_t pause_;
 
@@ -110,7 +111,11 @@ static uint8_t devreq(int req, void *arg)
 static void render(void)
 {
 #ifdef STATIC_BG
-	bg_render(0);
+	if (!rgba_)
+		bg_render(0);
+	else
+		bg_render_color(.3, .5, .8, 1);
+
 	game_render();
 #else
 	glActiveTexture(GL_TEXTURE0);
@@ -137,6 +142,7 @@ static void handle_button_press(xcb_button_press_event_t *e)
 {
 	switch (e->detail) {
 	case MOUSE_BTN_LEFT:
+		game_touch(e->event_x, e->event_y);
 		break;
 	case MOUSE_BTN_MID: /* fall through */
 	case MOUSE_BTN_RIGHT:
@@ -344,8 +350,13 @@ static int init_scene(const char *path)
 		return -1;
 
 #ifdef STATIC_BG
-	texid_ = bg_open(path, NULL, &bmp_.w, &bmp_.h);
-	resize_window(bmp_.w, bmp_.h);
+	if (!path) {
+		bg_open_color();
+	} else {
+		texid_ = bg_open(path, NULL, &bmp_.w, &bmp_.h);
+		resize_window(bmp_.w, bmp_.h);
+	}
+
 	bg_resize(bmp_.w, bmp_.h);
 	game_open(font0_, font1_, NULL);
 	game_resize(bmp_.w, bmp_.h);
@@ -527,8 +538,11 @@ int main(int argc, const char *argv[])
 		path = argv[1];
 		bmp_.w = bmp_.h = 100;
 	} else {
-		ii("Usage: %s <image>\n", argv[0]);
-		exit(1);
+		ii("Usage: %s [image]\n", argv[0]);
+		bmp_.w = 580;
+		bmp_.h = bmp_.w * 1.7777;
+		path = NULL;
+		rgba_ = 1;
 	}
 #else
 	if (argc == 2) {
@@ -539,7 +553,7 @@ int main(int argc, const char *argv[])
 	}
 #endif
 
-	if (stat(path, &st) < 0) {
+	if (path && stat(path, &st) < 0) {
 		ee("failed to stat '%s'\n", path);
 		return 1;
 	}

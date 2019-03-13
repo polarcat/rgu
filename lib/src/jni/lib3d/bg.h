@@ -18,3 +18,6 @@ void bg_close(void);
 void bg_render(uint8_t grey);
 void bg_render_offscreen(uint8_t *buf, uint16_t w, uint16_t h, uint8_t grey);
 void bg_resize(uint16_t w, uint16_t h);
+
+void bg_open_color(void);
+void bg_render_color(float r, float g, float b, float a);

@@ -28,6 +28,7 @@ static GLuint img_;
 static GLuint prog_;
 static GLuint texid_;
 static GLint u_tex_;
+static GLint u_rgba_;
 static GLint u_grey_;
 static GLint a_pos_;
 static GLint a_uv_;
@@ -222,6 +223,57 @@ void bg_close(void)
 {
 	glDeleteTextures(1, &texid_);
 	glDeleteProgram(prog_);
+}
+
+void bg_open_color(void)
+{
+	const char *fsrc =
+		"precision lowp float;\n"
+		"uniform vec4 u_rgba;\n"
+		"void main() {\n"
+			"gl_FragColor=u_rgba;\n"
+		"}\0";
+
+	const char *vsrc =
+		"attribute vec4 a_pos;\n"
+		"void main() {\n"
+			"gl_Position=a_pos;\n"
+		"}\0";
+
+	if (!(prog_ = gl_make_prog(vsrc, fsrc))) {
+		ee("failed to create program\n");
+		return;
+	}
+
+	glUseProgram(prog_);
+
+	a_pos_ = glGetAttribLocation(prog_, "a_pos");
+	u_rgba_ = glGetUniformLocation(prog_, "u_rgba");
+
+	ii("color background init ok\n");
+
+	/* these are for offscreen rendering */
+
+	glGenFramebuffers(1, &fbo_);
+	glGenTextures(1, &img_);
+}
+
+void bg_render_color(float r, float g, float b, float a)
+{
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	gl_disable_features();
+
+	glUseProgram(prog_);
+	glUniform4f(u_rgba_, r, g, b, a);
+	glVertexAttribPointer(a_pos_, 2, GL_FLOAT, GL_FALSE, 0, vertices_);
+	glEnableVertexAttribArray(a_pos_);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices_);
+	gl_error("glDrawElements");
+
+	glDisableVertexAttribArray(a_pos_);
+
+	gl_enable_features();
 }
 
 #ifdef STATIC_BG
