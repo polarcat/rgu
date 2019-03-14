@@ -15,8 +15,18 @@ lib3d/pip.c \
 lib3d/cv.c \
 lib3d/sb.c \
 lib3d/plotter.c \
+lib3d/game.c \
 utils/image.c \
 utils/sensors.c \
+
+game = $(LOCAL_PATH)/game/sources.mk
+
+ifneq ("$(wildcard $(game))","")
+include $(game)
+LOCAL_SRC_FILES += $(src)
+LOCAL_SRC_FILES += lib3d/tools.c
+LOCAL_CFLAGS += "-DHAVE_GAME"
+endif
 
 ifneq (,$(wildcard $(LOCAL_PATH)/algo))
 LOCAL_CFLAGS += "-DHAVE_ALGO"
