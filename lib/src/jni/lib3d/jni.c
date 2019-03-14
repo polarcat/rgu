@@ -34,6 +34,12 @@ static uint8_t pause_;
 //#define FRAME_BY_FRAME
 //#define IMAGE_VIEWER
 
+#define STATIC_BG
+
+#ifdef STATIC_BG
+#include "game.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -53,7 +59,11 @@ jnicall(int, open, JNIEnv *env, jclass class, jobject asset_manager)
 
 	sem_init(&run_, 0, 0);
 
-#ifdef IMAGE_VIEWER
+#ifdef STATIC_BG
+	bg_open_color();
+	game_open(font0_, font1_, NULL);
+	return 0;
+#elif defined(IMAGE_VIEWER)
 	sb_open(font0_, font1_, CV_BLOCK);
 	return img_open("images/bg.png", AAssetManager_fromJava(env, asset_manager));
 #else
@@ -71,7 +81,10 @@ jnicall(void, render, JNIEnv *env, jclass class)
 		sem_wait(&run_);
 #endif
 
-#ifdef IMAGE_VIEWER
+#ifdef STATIC_BG
+	bg_render_color(.3, .5, .8, 1);
+	game_render();
+#elif defined(IMAGE_VIEWER)
 	img_render();
 	sb_render();
 #else
@@ -85,7 +98,10 @@ jnicall(void, resize, JNIEnv *env, jclass class, int w, int h)
 {
 	ii("new wh { %d, %d }\n", w, h);
 
-#ifdef IMAGE_VIEWER
+#ifdef STATIC_BG
+	bg_resize(w, h);
+	game_resize(w, h);
+#elif defined(IMAGE_VIEWER)
 	img_resize(w, h);
 #else
 	bg_resize(w, h);
@@ -101,7 +117,10 @@ jnicall(void, close, JNIEnv *env, jclass class)
 {
 	font_close(&font0_);
 	font_close(&font1_);
-#ifdef IMAGE_VIEWER
+#ifdef STATIC_BG
+	game_close();
+	bg_close();
+#elif defined(IMAGE_VIEWER)
 	sb_close();
 	img_close();
 #else
@@ -132,11 +151,15 @@ jnicall(void, input, JNIEnv *env, jclass class, float x, float y)
 {
 	dd("touch at { %f, %f }", x, y);
 
+#ifdef STATIC_BG
+	game_touch(x, y);
+#else
 	cv_touch(x, y);
+#endif
 
 #ifdef FRAME_BY_FRAME
 	post_sem();
-#else
+#elif !defined(STATIC_BG)
 	if (!pause_) {
 		pause_ = 1;
 	} else {
