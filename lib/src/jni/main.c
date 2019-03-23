@@ -228,6 +228,10 @@ static uint8_t events(uint8_t poll)
 		handle_button_press((xcb_button_press_event_t *) e);
 		rc = 1;
 		break;
+	case XCB_BUTTON_RELEASE:
+		game_touch(-1, -1);
+		rc = 1;
+		break;
 	case XCB_RESIZE_REQUEST:
 		handle_resize((xcb_resize_request_event_t *) e);
 		break;

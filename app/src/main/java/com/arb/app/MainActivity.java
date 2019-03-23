@@ -169,6 +169,9 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer,
 		case MotionEvent.ACTION_DOWN:
 			scene.input(e.getX(), e.getY());
 			break;
+		case MotionEvent.ACTION_UP:
+			scene.input(-1, -1);
+			break;
 		}
 
 		return true;
