@@ -41,15 +41,12 @@ static pthread_mutex_t touch_lock_ = PTHREAD_MUTEX_INITIALIZER;
 #define lock_touch(void) pthread_mutex_lock(&touch_lock_)
 #define unlock_touch(void) pthread_mutex_unlock(&touch_lock_)
 
-static struct font *font0_;
-static struct font *font1_;
-
 static uint16_t img_w_;
 static uint16_t img_h_;
 static uint8_t *img_;
 
-static uint16_t touch_x_;
-static uint16_t touch_y_;
+static float touch_x_;
+static float touch_y_;
 
 void game_resize(uint16_t w, uint16_t h)
 {
@@ -62,7 +59,7 @@ void game_resize(uint16_t w, uint16_t h)
 	unlock_resize();
 }
 
-void game_touch(uint16_t x, uint16_t y)
+void game_touch(float x, float y)
 {
 	lock_touch();
 
@@ -74,7 +71,7 @@ void game_touch(uint16_t x, uint16_t y)
 	handle_touch(touch_x_, touch_y_);
 }
 
-void game_open(struct font *f0, struct font *f1, void *assets)
+void game_open(void *assets)
 {
 	GLint wh[4];
 
@@ -83,13 +80,8 @@ void game_open(struct font *f0, struct font *f1, void *assets)
 	img_w_ = wh[2];
 	img_h_ = wh[3];
 
-	font0_ = f0;
-	font1_ = f1;
-
 	draw_init(); /* for debug drawing */
 	gm_open(img_w_ / 4);
-	plotter_open(f0, f1, img_w_, img_h_, 0);
-
 	handle_setup(assets);
 
 	ii("init ok\n");
@@ -100,6 +92,7 @@ void game_close(void)
 	gm_close();
 }
 
+#ifdef DRAW_AXIS
 static inline void draw_axis(void)
 {
 	draw_line2d(-1, 0, 1, 0, .8, .8, .8);
@@ -113,6 +106,9 @@ static inline void draw_axis(void)
 		i += .1;
 	}
 }
+#else
+#define draw_axis() ;
+#endif
 
 void game_render(void)
 {

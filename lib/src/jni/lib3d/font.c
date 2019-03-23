@@ -5,9 +5,8 @@
  * Released under the GNU General Public License, version 2
  */
 
+#include <ctype.h>
 #include <unistd.h>
-#include <pthread.h>
-#include <semaphore.h>
 
 #ifdef ANDROID
 #include <android/asset_manager_jni.h>
@@ -28,32 +27,24 @@
 #include "stb_truetype.h"
 
 #include "gl.h"
+#include "gm.h"
 #include "font.h"
-
-enum {
-	TEXT_DISPLAYED,
-	TEXT_DISPLAY,
-	TEXT_PREPARED,
-	TEXT_PREPARE,
-};
-
-struct bitmap {
-	uint8_t *data;
-	uint32_t size;
-	uint16_t w;
-};
-
-#define TEXT_QUEUE_SIZE 2
 
 struct text {
 	uint8_t state;
 	char *str;
 	uint16_t len;
-	float x;
-	float y;
 	uint32_t fg;
 	uint32_t bg;
 	struct bitmap bitmap;
+};
+
+struct glyph {
+	uint32_t code;
+	uint8_t *bmp;
+	int16_t w;
+	int16_t h;
+	int16_t bl; /* baseline */
 };
 
 struct font {
@@ -72,14 +63,10 @@ struct font {
 	float scale;
 	uint16_t size;
 
-	pthread_t thread;
-	sem_t prepare;
-
-	pthread_mutex_t text_lock;
-	struct text text_head[TEXT_QUEUE_SIZE];
-	struct text *text_tail;
 	struct text text;
 
+	struct glyph *glyphs;
+	uint16_t glyphs_num;
 #ifdef ANDROID
 	void *asset;
 #endif
@@ -96,16 +83,6 @@ static const float uvs_[] = {
         1, 0,
         1, 1,
 };
-
-static void sem_resume(struct font *font)
-{
-	int val = 1; /* to skip error checking */
-
-	sem_getvalue(&font->prepare, &val);
-
-	if (!val)
-		sem_post(&font->prepare);
-}
 
 #define spacing(glyph_width, size) ((uint8_t) (glyph_width + size / 10))
 
@@ -124,145 +101,6 @@ static uint16_t text_width(struct font *font, const char *str, const size_t len)
 	}
 
 	return w;
-}
-
-static uint32_t *glchar(const struct font *font, uint32_t code, uint32_t *rgba,
-  uint16_t row_len, uint8_t *gbuf_ptr, uint32_t color)
-{
-	int x0, y0, x1, y1;
-	int gw;
-	int gh;
-	int g = stbtt_FindGlyphIndex(&font->stbtt, code);
-
-	stbtt_GetGlyphBitmapBox(&font->stbtt, g, font->scale, font->scale,
-	  &x0, &y0, &x1, &y1);
-
-	gw = x1 - x0;
-	gh = y1 - y0;
-
-	int baseline = font->ascent + y0;
-
-	stbtt_MakeGlyphBitmap(&font->stbtt, gbuf_ptr, gw, gh, gw, font->scale,
-	  font->scale, g);
-
-	uint8_t *rgba_ptr = (uint8_t *) (rgba + baseline * row_len);
-
-	for (uint16_t row = 0; row < gh; ++row) {
-		for (uint16_t col = 0; col < gw; ++col) {
-			if (*gbuf_ptr == 0) {
-				rgba_ptr += 4;
-			} else {
-				*rgba_ptr++ = *gbuf_ptr;
-				*rgba_ptr++ = *gbuf_ptr;
-				*rgba_ptr++ = *gbuf_ptr;
-				*rgba_ptr++ = 0xff;
-			}
-
-			gbuf_ptr++;
-		}
-
-		rgba_ptr = (uint8_t *) (rgba + (row + baseline) * row_len);
-	}
-
-	return rgba + spacing(gw, font->size);
-}
-
-static void prepare_text(struct font *font, struct text *text)
-{
-	uint16_t w;
-	uint32_t size;
-	uint8_t *bitmap;
-
-	w = text_width(font, text->str, text->len);
-
-	if (w < 1) {
-		text->state = TEXT_DISPLAYED; /* init again */
-		return;
-	}
-
-	size = font->size * w * 4;
-
-	if (size != text->bitmap.size) {
-		free(text->bitmap.data);
-
-		if (!(text->bitmap.data = (uint8_t *) malloc(size))) {
-			text->state = TEXT_DISPLAYED;
-			return;
-		}
-
-		text->bitmap.size = size;
-		text->bitmap.w = w;
-	}
-
-	uint32_t *buf = (uint32_t *) text->bitmap.data;
-	const char *str = text->str;
-	uint8_t glyph[font->size * font->size];
-
-	fillrect(buf, (uint32_t *) (text->bitmap.data + size), text->bg);
-
-	while (str < text->str + text->len)
-		buf = glchar(font, *str++, buf, w, glyph, text->fg);
-
-	text->state = TEXT_PREPARED;
-}
-
-static void *thread_work(void *arg)
-{
-	struct font *font = (struct font *) arg;
-	struct text *text_cur;
-	uint8_t found;
-
-	while (1) {
-		found = 0;
-		sem_wait(&font->prepare);
-
-		pthread_mutex_lock(&font->text_lock);
-		text_cur = font->text_head;
-
-		do {
-			if (text_cur->state == TEXT_PREPARE) {
-				found = 1; /* unlock and prepare ... */
-				break;
-			}
-
-			text_cur++;
-		} while (text_cur < font->text_tail);
-
-		pthread_mutex_unlock(&font->text_lock);
-
-		if (found)
-			prepare_text(font, text_cur);
-	}
-
-	return NULL;
-}
-
-void font_close(struct font **ptr)
-{
-	struct font *font = *ptr;
-#ifdef ANDROID
-	AAsset_close((AAsset *) font->asset);
-	font->asset = NULL;
-#else
-	if (font->data_buf) {
-		munmap((void *) font->data_buf, font->data_len);
-		font->data_buf = NULL;
-	}
-
-	if (font->fd > -1) {
-		close(font->fd);
-		font->fd = -1;
-	}
-#endif
-	glDeleteTextures(1, &font->tex);
-
-	for (uint8_t i = 0; i < TEXT_QUEUE_SIZE; ++i) {
-		free(font->text_head[i].bitmap.data);
-		free(font->text_head[i].str);
-	}
-
-	free(font);
-	*ptr = NULL;
 }
 
 static uint8_t prepare_program(struct font *font)
@@ -296,101 +134,20 @@ static uint8_t prepare_program(struct font *font)
 	glGenTextures(1, &font->tex);
 	glBindTexture(GL_TEXTURE_2D, font->tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	return 1;
 }
 
-struct font *font_open(const char *path, float size, void *assets)
-{
-	struct font *font = (struct font *) calloc(1, sizeof(*font));
-
-	if (!font) {
-		ee("failed to allocate %zu bytes\n", sizeof(*font));
-		return NULL;
-	}
-
-	pthread_mutex_init(&font->text_lock, NULL);
-
-#ifdef ANDROID
-	AAsset *asset;
-
-	if (!assets) {
-		ee("bad assets manager\n");
-		goto err;
-	}
-
-	asset = AAssetManager_open((AAssetManager *) assets, path,
-	  AASSET_MODE_BUFFER);
-
-	if (!asset) {
-		ee("failed to open assets\n");
-		goto err;
-	}
-
-	font->data_buf = (const uint8_t *) AAsset_getBuffer(asset);
-	font->data_len = AAsset_getLength(asset);
-	font->asset = asset;
-#else
-	struct stat st;
-
-	if (stat(path, &st) < 0) {
-		ee("failed to stat file %s\n", path);
-		goto err;
-	}
-
-	if ((font->fd = open(path, O_RDONLY)) < 0) {
-		ee("failed to open file %s\n", path);
-		goto err;
-	}
-
-	font->data_buf = (uint8_t *) mmap(NULL, st.st_size, PROT_READ,
-	  MAP_PRIVATE, font->fd, 0);
-
-	if (!font->data_buf) {
-		ee("failed to map file %s\n", path);
-		goto err;
-	}
-#endif
-
-	if (!prepare_program(font))
-		goto err;
-
-	stbtt_InitFont(&font->stbtt, font->data_buf, 0);
-
-	font->size = (uint16_t) ceil(size);
-	font->scale = stbtt_ScaleForPixelHeight(&font->stbtt, size);
-
-	stbtt_GetFontVMetrics(&font->stbtt, &font->ascent, &font->descent, 0);
-
-	font->ascent *= font->scale;
-	font->descent *= font->scale;
-
-	ii("font %s ok: scale %f | ascent %d | descent %d\n", path,
-	  font->scale, font->ascent, font->descent);
-
-	font->text_tail = font->text_head + TEXT_QUEUE_SIZE;
-
-	sem_init(&font->prepare, 0, 0);
-	pthread_create(&font->thread, NULL, thread_work, font);
-
-	return font;
-
-err:
-	font_close(&font);
-	return NULL;
-}
-
-static void render_text(struct font *font)
+static void render_text(struct font *font, struct text *text, float x, float y)
 {
 	float verts[8];
-	float x = font->text.x;
-	float y = font->text.y;
 	GLint wh[4];
 
 	glGetIntegerv(GL_VIEWPORT, wh);
 
-	float norm_w = (float) font->text.bitmap.w / wh[2];
-	float norm_h = (float) font->size / wh[3];
+	float norm_w = (float) text->bitmap.w / wh[2];
+	float norm_h = (float) text->bitmap.h / wh[3];
 
 	verts[0] = x;
 	verts[1] = y - norm_h;
@@ -410,9 +167,9 @@ static void render_text(struct font *font)
 	   "norm wh %f,%f | "
 	   "v0 %f,%f v1 %f,%f v2 %f,%f v3 %f,%f | "
 	   "disp %d,%d\n",
-	  text_cur->str,
-	  text_cur, text_cur->bitmap.data,
-	  text_cur->bitmap.w, font->size,
+	  text->str,
+	  text, text->bitmap.data,
+	  text->bitmap.w, font->size,
 	  norm_w, norm_h,
 	  verts[0], verts[1],
 	  verts[2], verts[3],
@@ -423,8 +180,8 @@ static void render_text(struct font *font)
 #endif
 
 	glBindTexture(GL_TEXTURE_2D, font->tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, font->text.bitmap.w, font->size,
-	  0, GL_RGBA, GL_UNSIGNED_BYTE, font->text.bitmap.data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, text->bitmap.w, text->bitmap.h,
+	  0, GL_RGBA, GL_UNSIGNED_BYTE, text->bitmap.data);
 
 	glUseProgram(font->prog);
 
@@ -441,55 +198,276 @@ static void render_text(struct font *font)
 	glDisableVertexAttribArray(font->a_pos);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	free(text->bitmap.data);
+	text->bitmap.data = NULL;
 }
 
-void font_render_async(struct font *font, const char *str, uint16_t len,
-  float x, float y, uint32_t fg, uint32_t bg)
+static void release_buffer(int fd, const unsigned char *buf, size_t len,
+  void *assets)
 {
-	struct text *text_ptr = font->text_head;
-	struct text *text_cur = &font->text;
+#ifdef ANDROID
+	if (assets)
+		AAsset_close((AAsset *) assets);
+#else
+	if (buf)
+		munmap((void *) buf, len);
 
-	pthread_mutex_lock(&font->text_lock);
+	close(fd);
+#endif
+}
 
-	do {
-		if (text_ptr->state == TEXT_PREPARED) {
-			/* text string itself is not used for rendering */
-			memcpy(text_cur, text_ptr, sizeof(*text_cur));
-			text_ptr->state = TEXT_DISPLAYED;
-		} else if (text_ptr->state == TEXT_DISPLAYED) {
-			if (text_ptr->len == len) {
-				memcpy(text_ptr->str, str, len);
+void close_font(struct font **ptr)
+{
+	struct font *font = *ptr;
+
+	if (!font)
+		return;
+
+	glDeleteProgram(font->prog);
+	glDeleteTextures(1, &font->tex);
+
+	if (font->glyphs) {
+		for (uint8_t i = 0; i < font->glyphs_num; ++i) {
+			if (font->glyphs[i].bmp)
+				free(font->glyphs[i].bmp);
+		}
+
+		free(font->glyphs);
+	}
+
+	free(font);
+	*ptr = NULL;
+}
+
+static inline void prepare_glyph(struct font *font, uint32_t code, struct glyph *glyph)
+{
+	union gm_point2i min;
+	union gm_point2i max;
+	int g = stbtt_FindGlyphIndex(&font->stbtt, code);
+
+	stbtt_GetGlyphBitmapBox(&font->stbtt, g, font->scale, font->scale,
+	  &min.x, &min.y, &max.x, &max.y);
+
+	glyph->w = max.x - min.x;
+	glyph->h = max.y - min.y;
+	glyph->bl = font->ascent + min.y;
+	glyph->code = code;
+
+	stbtt_MakeGlyphBitmap(&font->stbtt, glyph->bmp, glyph->w, glyph->h,
+	  glyph->w, font->scale, font->scale, g);
+}
+
+static inline uint8_t prepare_glyphs(struct font *font, const uint32_t *codes,
+  uint8_t codes_num)
+{
+	uint16_t size = sizeof(*font->glyphs) * codes_num;
+
+	ii("allocate %u ? %zu\n", size, sizeof(struct glyph) * codes_num);
+
+	if (!(font->glyphs = calloc(1, size))) {
+		ee("failed to allocate %u bytes\n", size);
+		return 0;
+	}
+
+	font->glyphs_num = codes_num;
+	size = font->size * font->size;
+
+	for (uint8_t i = 0; i < codes_num; ++i) {
+		if (!(font->glyphs[i].bmp = calloc(1, size))) {
+			ee("failed to allocate %u bytes\n", size);
+			return 0;
+		}
+
+		prepare_glyph(font, codes[i], &font->glyphs[i]);
+	}
+
+	ii("prepared %u glyphs\n", codes_num);
+	return 1;
+}
+
+struct font *open_font(const char *path, float font_size, const uint32_t *codes,
+  uint8_t codes_num, void *assets)
+{
+	struct font *font = (struct font *) calloc(1, sizeof(*font));
+
+	if (!font) {
+		ee("failed to allocate %zu bytes\n", sizeof(*font));
+		return NULL;
+	}
+
+	const unsigned char *buf = NULL;
+	size_t len = 0;
+	int fd = -1;
+
+#ifdef ANDROID
+	AAsset *asset;
+
+	if (!assets) {
+		ee("bad assets manager\n");
+		goto err;
+	}
+
+	asset = AAssetManager_open((AAssetManager *) assets, path,
+	  AASSET_MODE_BUFFER);
+
+	if (!asset) {
+		ee("failed to open assets %s\n", path);
+		goto err;
+	}
+
+	buf = (const unsigned char *) AAsset_getBuffer(asset);
+	len = AAsset_getLength(asset);
+	font->asset = asset;
+#else
+	struct stat st;
+
+	if (stat(path, &st) < 0) {
+		ee("failed to stat file %s\n", path);
+		goto err;
+	}
+
+	if ((fd = open(path, O_RDONLY)) < 0) {
+		ee("failed to open file %s\n", path);
+		goto err;
+	}
+
+	len = st.st_size;
+	buf = (uint8_t *) mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
+
+	if (!buf) {
+		ee("failed to map file %s\n", path);
+		goto err;
+	}
+#endif
+	if (!prepare_program(font))
+		goto err;
+
+	stbtt_InitFont(&font->stbtt, buf, 0);
+
+	font->size = (uint16_t) ceil(font_size);
+	font->scale = stbtt_ScaleForPixelHeight(&font->stbtt, font->size);
+
+	stbtt_GetFontVMetrics(&font->stbtt, &font->ascent, &font->descent, 0);
+
+	font->ascent *= font->scale;
+	font->descent *= font->scale;
+
+	ii("font %s ok: scale %f | ascent %d | descent %d\n", path,
+	  font->scale, font->ascent, font->descent);
+
+	if (!prepare_glyphs(font, codes, codes_num))
+		goto err;
+
+	return font;
+
+err:
+	release_buffer(fd, buf, len, assets);
+	close_font(&font);
+	return NULL;
+}
+
+static struct glyph *lookup_glyph(const struct font *font, uint32_t code)
+{
+	for (uint8_t i = 0; i < font->glyphs_num; ++i) {
+		if (font->glyphs[i].code == code)
+			return &font->glyphs[i];
+	}
+
+	return NULL;
+}
+
+static uint32_t *prepare_char(const struct font *font, uint32_t code,
+  uint32_t *rgba, uint16_t row_len)
+{
+	struct glyph *glyph = lookup_glyph(font, code);
+
+	if (!glyph) {
+		ii("glyph for code %u '%c' not found\n", code, (char) code);
+		return rgba; /* skip symbol */
+	}
+
+	uint8_t *rgba_ptr = (uint8_t *) (rgba + glyph->bl * row_len);
+	uint8_t *bmp = glyph->bmp;
+
+	for (uint16_t row = 0; row < glyph->h; ++row) {
+		for (uint16_t col = 0; col < glyph->w; ++col) {
+			if (*bmp == 0) {
+				rgba_ptr += 4;
 			} else {
-				free(text_ptr->str);
-				text_ptr->str = strdup(str);
+				*rgba_ptr++ = *bmp;
+				*rgba_ptr++ = *bmp;
+				*rgba_ptr++ = *bmp;
+				*rgba_ptr++ = 0xff;
 			}
 
-			text_ptr->x = x;
-			text_ptr->y = y;
-			text_ptr->len = len;
-			text_ptr->fg = fg;
-			text_ptr->bg = bg;
-			text_ptr->state = TEXT_PREPARE;
+			bmp++;
 		}
-	} while (++text_ptr < font->text_tail);
 
-	pthread_mutex_unlock(&font->text_lock);
+		rgba_ptr = (uint8_t *) (rgba + (row + glyph->bl) * row_len);
+	}
 
-	sem_resume(font);
-	render_text(font);
+	return rgba + spacing(glyph->w, font->size);
 }
 
-void font_render(struct font *font, const char *str, uint16_t len,
-  float x, float y, uint32_t fg, uint32_t bg)
+static void prepare_text(struct font *font, struct text *text)
 {
-	font->text.x = x;
-	font->text.y = y;
-	font->text.str = (char *) str;
-	font->text.len = len;
-	font->text.fg = fg;
-	font->text.bg = bg;
-	font->text.state = TEXT_PREPARE;
+	uint16_t w = text_width(font, text->str, text->len);
+	uint32_t size = font->size * w * 4;
 
-	prepare_text(font, &font->text);
-	render_text(font);
+	if (!(text->bitmap.data = (uint8_t *) malloc(size)))
+		return;
+
+	text->bitmap.size = size;
+	text->bitmap.w = w;
+	text->bitmap.h = font->size;
+
+	uint32_t *buf = (uint32_t *) text->bitmap.data;
+	const char *str = text->str;
+
+	fillrect(buf, (uint32_t *) (text->bitmap.data + size), text->bg);
+
+	while (str < text->str + text->len)
+		buf = prepare_char(font, *str++, buf, w);
+}
+
+void draw_text(struct font *font, const char *str, uint16_t len, float x,
+  float y, uint32_t fg, uint32_t bg, struct bitmap *bmp)
+{
+	struct text text = {
+		.str = (char *) str,
+		.len = len,
+		.fg = fg,
+		.bg = bg,
+	};
+
+	prepare_text(font, &text);
+
+	if (bmp) {
+		bmp->data = text.bitmap.data;
+		bmp->size = text.bitmap.size;
+		bmp->w = text.bitmap.w;
+		bmp->h = text.bitmap.h;
+		return;
+	}
+
+	render_text(font, &text, x, y);
+}
+
+#define MAX_CHARS (0x7f - 0x20)
+
+const uint32_t *default_codes(uint8_t *codes_num)
+{
+	uint32_t *codes;
+
+	if (!(codes = calloc(1, MAX_CHARS * sizeof(*codes))))
+		return 0;
+
+	*codes_num = 0;
+
+	for (uint8_t i = 0x20; i < 0x7f; ++i)
+		codes[(*codes_num)++] = i;
+
+	ii("prepared %u printable characters at %p\n", *codes_num, codes);
+	return codes;
 }

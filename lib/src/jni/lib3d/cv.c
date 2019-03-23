@@ -101,7 +101,6 @@ static void *thread_work(void *arg)
         while (!close_) {
                 sem_wait(&run_);
 		do_process_image();
-		plotter_swap();
 
 		lock_job_state();
 		job_done_ = 1;
@@ -152,7 +151,7 @@ void cv_open(struct font *f0, struct font *f1, uint8_t async)
 
 	draw_init();
 	gm_open(img_w_ / 4);
-	plotter_open(f0, f1, img_w_, img_h_, async);
+	init_plotter(f0, f1, img_w_, img_h_);
 
 	if (async_) {
 	        sem_init(&run_, 0, 0);
@@ -173,10 +172,8 @@ void cv_close(void)
 #endif
 	gm_close();
 
-	if (async_) {
-		plotter_close();
+	if (async_)
 		close_ = 1; /* tell the worker thread to release resource and exit */
-	}
 }
 
 /*
@@ -204,8 +201,6 @@ void cv_render(void)
 		job_done_ = 1;
 		unlock_job_state();
 	} else {
-		plotter_render();
-
 		int val = 1; /* to skip error checking */
 
 		sem_getvalue(&run_, &val);

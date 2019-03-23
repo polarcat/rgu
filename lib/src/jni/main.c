@@ -69,12 +69,6 @@ struct fileinfo {
 	uint8_t dir;
 };
 
-struct bitmap {
-	void *data;
-	uint16_t w;
-	uint16_t h;
-};
-
 struct bitmap bmp_;
 
 static xcb_connection_t *dpy_;
@@ -347,12 +341,6 @@ static void resize_window(uint16_t w, uint16_t h)
 
 static int init_scene(const char *path)
 {
-	if (!(font0_ = font_open(FONT_PATH, 36, NULL)))
-		return -1;
-
-	if (!(font1_ = font_open(FONT_PATH, 48, NULL)))
-		return -1;
-
 #ifdef STATIC_BG
 	if (!path) {
 		bg_open_color();
@@ -362,9 +350,18 @@ static int init_scene(const char *path)
 	}
 
 	bg_resize(bmp_.w, bmp_.h);
-	game_open(font0_, font1_, NULL);
+	game_open(NULL);
 	game_resize(bmp_.w, bmp_.h);
 #else
+	uint8_t codes_num;
+	uint32_t *codes = default_codes(&codes_num);
+
+	if (!(font0_ = open_font(FONT_PATH, 36, codes, codes_num, NULL)))
+		return -1;
+
+	if (!(font1_ = open_font(FONT_PATH, 48, codes, codes_num, NULL)))
+		return -1;
+
 	bg_resize(bmp_.w, bmp_.h);
 	cv_open(font0_, font1_, CV_BLOCK);
 	cv_resize(bmp_.w, bmp_.h);
@@ -621,8 +618,8 @@ int main(int argc, const char *argv[])
 		v4l2_close(fd_);
 	}
 
-	font_close(&font0_);
-	font_close(&font1_);
+	close_font(&font0_);
+	close_font(&font1_);
 
 	bg_close();
 #ifdef STATIC_BG

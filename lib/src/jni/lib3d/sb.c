@@ -23,19 +23,14 @@
 	plot_text(str, pos);\
 }
 
-void sb_open(struct font *f0, struct font *f1, uint8_t async)
+void sb_init(struct font *f0, struct font *f1)
 {
 	GLint wh[4];
 
 	glGetIntegerv(GL_VIEWPORT, wh);
 
-	plotter_open(f0, f1, wh[2], wh[3], async);
+	init_plotter(f0, f1, wh[2], wh[3]);
 	ii("init ok\n");
-}
-
-void sb_close(void)
-{
-	plotter_close();
 }
 
 void sb_render(void)

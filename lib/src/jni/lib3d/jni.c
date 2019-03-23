@@ -49,22 +49,28 @@ extern "C" {
 
 jnicall(int, open, JNIEnv *env, jclass class, jobject asset_manager)
 {
-	if (!(font0_ = font_open("fonts/Shure-Tech-Mono-Nerd-Font-Complete.ttf", 64,
-	  AAssetManager_fromJava(env, asset_manager))))
-		return -1;
-
-	if (!(font1_ = font_open("fonts/Shure-Tech-Mono-Nerd-Font-Complete.ttf", 128,
-	  AAssetManager_fromJava(env, asset_manager))))
-		return -1;
-
 	sem_init(&run_, 0, 0);
+
+#ifdef ANDROID
+	void *assets = AAssetManager_fromJava(env, asset_manager);
+#else
+	void *assets = NULL;
+#endif
 
 #ifdef STATIC_BG
 	bg_open_color();
-	game_open(font0_, font1_, NULL);
+	game_open(assets);
 	return 0;
 #elif defined(IMAGE_VIEWER)
-	sb_open(font0_, font1_, CV_BLOCK);
+	if (!(font0_ = font_open("fonts/Shure-Tech-Mono-Nerd-Font-Complete.ttf", 64,
+	  assets)))
+		return -1;
+
+	if (!(font1_ = font_open("fonts/Shure-Tech-Mono-Nerd-Font-Complete.ttf", 128,
+	  assets)))
+		return -1;
+
+	sb_init(font0_, font1_);
 	return img_open("images/bg.png", AAssetManager_fromJava(env, asset_manager));
 #else
 	cv_open(font0_, font1_, CV_BLOCK);
@@ -115,15 +121,17 @@ jnicall(void, rotate, JNIEnv *env, jclass class, int r)
 
 jnicall(void, close, JNIEnv *env, jclass class)
 {
-	font_close(&font0_);
-	font_close(&font1_);
 #ifdef STATIC_BG
 	game_close();
 	bg_close();
 #elif defined(IMAGE_VIEWER)
+	close_font(&font0_);
+	close_font(&font1_);
 	sb_close();
 	img_close();
 #else
+	close_font(&font0_);
+	close_font(&font1_);
 	bg_close();
 	cv_close();
 #endif

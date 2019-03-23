@@ -11,6 +11,5 @@
 
 #include "font.h"
 
-void sb_open(struct font *f0, struct font *f1, uint8_t async);
-void sb_close(void);
+void sb_init(struct font *f0, struct font *f1);
 void sb_render(void);
