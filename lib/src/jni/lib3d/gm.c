@@ -192,19 +192,19 @@ void gm_vec2_init(union gm_vec2 *v, const union gm_point2 *p0,
 	v->y = p1->y - p0->y;
 }
 
-float gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1)
+float gm_vec2_dot(const union gm_vec2 *v0, const union gm_vec2 *v1)
 {
 	return v0->x * v1->x + v0->y * v1->y;
 }
 
 float gm_vec2_cos(const union gm_vec2 *v0, const union gm_vec2 *v1)
 {
-	return gm_vec2_dotprod(v0, v1) / (v0->len * v1->len);
+	return gm_vec2_dot(v0, v1) / (v0->len * v1->len);
 }
 
 float gm_vec2_angle(const union gm_vec2 *v0, const union gm_vec2 *v1)
 {
-	return acos(gm_vec2_dotprod(v0, v1) / (v0->len * v1->len));
+	return acos(gm_vec2_dot(v0, v1) / (v0->len * v1->len));
 }
 
 void gm_vec2_len(union gm_vec2 *v)
@@ -227,6 +227,13 @@ void gm_vec2_rotate(union gm_vec2 *v, float a)
 	v->y = v->x * sin(a) + v->y * cos(a);
 }
 
+void gm_vec2_perp(union gm_vec2 *in, union gm_vec2 *out)
+{
+	/* counterclockwise 90 degrees */
+	out->x = -in->y;
+	out->y = in->x;
+}
+
 /* vector3 ops */
 
 void gm_vec3_init(union gm_vec3 *v, const union gm_point3 *p0,
@@ -237,7 +244,7 @@ void gm_vec3_init(union gm_vec3 *v, const union gm_point3 *p0,
 	v->z = p1->z - p0->z;
 }
 
-void gm_vec3_crossprod(union gm_vec3 *v, const union gm_vec3 *v0,
+void gm_vec3_cross(union gm_vec3 *v, const union gm_vec3 *v0,
   const union gm_vec3 *v1)
 {
 	v->x = v0->y * v1->z - v0->z * v1->y;
@@ -245,7 +252,7 @@ void gm_vec3_crossprod(union gm_vec3 *v, const union gm_vec3 *v0,
 	v->z = v0->x * v1->y - v0->y * v1->x;
 }
 
-float gm_vec3_dotprod(const union gm_vec3 *v0, const union gm_vec3 *v1)
+float gm_vec3_dot(const union gm_vec3 *v0, const union gm_vec3 *v1)
 {
 	return v0->x * v1->x + v0->y * v1->y + v0->z * v1->z;
 }
@@ -267,7 +274,7 @@ void gm_vec3_normalize(union gm_vec3 *v)
 
 float gm_vec3_angle(const union gm_vec3 *v0, const union gm_vec3 *v1)
 {
-	return acos(gm_vec3_dotprod(v0, v1) / (v0->len * v1->len));
+	return acos(gm_vec3_dot(v0, v1) / (v0->len * v1->len));
 }
 
 /* plane ops */
@@ -281,7 +288,7 @@ void gm_plane_init(union gm_plane3 *p, const union gm_point3 *p0,
 	gm_vec3_init(&v0, p0, p1);
 	gm_vec3_init(&v1, p0, p2);
 
-	gm_vec3_crossprod(&p->n, &v0, &v1);
+	gm_vec3_cross(&p->n, &v0, &v1);
 	gm_vec3_normalize(&p->n);
 	p->d = -1 * (p->n.x * v0.x + p->n.y * v0.y + p->n.z * v0.z);
 }
@@ -364,6 +371,11 @@ float gm_line_fx(const union gm_line *l, float x)
 		return l->y0;
 	else
 		return (l->y1 - l->y0) / (l->x1 - l->x0) * (x - l->x0) + l->y0;
+}
+
+float gm_line_slope(union gm_line *l)
+{
+	return (l->y0 - l->y1) / (l->x0 - l->x1);
 }
 
 float gm_line_angle(const union gm_line *l, uint8_t perp)

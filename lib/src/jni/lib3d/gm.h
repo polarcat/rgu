@@ -10,6 +10,14 @@
 #include <stdint.h>
 #include <math.h>
 
+union gm_point2i {
+	int data[2];
+	struct {
+		int x;
+		int y;
+	};
+};
+
 union gm_point2 {
 	float data[2];
 	struct {
@@ -25,7 +33,9 @@ union gm_point3 {
 		float y;
 		float z;
 	};
-	union gm_point2 xy;
+	struct {
+		union gm_point2 xy;
+	};
 };
 
 union gm_line {
@@ -38,8 +48,10 @@ union gm_line {
 		float cx;
 		float cy;
 	};
-	union gm_point2 p0;
-	union gm_point2 p1;
+	struct {
+		union gm_point2 p0;
+		union gm_point2 p1;
+	};
 };
 
 union gm_vec2 {
@@ -108,9 +120,10 @@ void gm_mat4_invert(float r[16], const float m[16]);
 
 void gm_vec2_init(union gm_vec2 *v, const union gm_point2 *p0,
   const union gm_point2 *p1);
-float gm_vec2_dotprod(const union gm_vec2 *v0, const union gm_vec2 *v1);
+float gm_vec2_dot(const union gm_vec2 *v0, const union gm_vec2 *v1);
 float gm_vec2_cos(const union gm_vec2 *v0, const union gm_vec2 *v1);
 float gm_vec2_angle(const union gm_vec2 *v0, const union gm_vec2 *v1);
+void gm_vec2_perp(union gm_vec2 *in, union gm_vec2 *out);
 void gm_vec2_normalize(union gm_vec2 *v);
 void gm_vec2_len(union gm_vec2 *v);
 void gm_vec2_rotate(union gm_vec2 *v, float a);
@@ -119,9 +132,9 @@ void gm_vec2_rotate(union gm_vec2 *v, float a);
 
 void gm_vec3_init(union gm_vec3 *v, const union gm_point3 *p0,
   const union gm_point3 *p1);
-void gm_vec3_crossprod(union gm_vec3 *v, const union gm_vec3 *v0,
+void gm_vec3_cross(union gm_vec3 *v, const union gm_vec3 *v0,
   const union gm_vec3 *v1);
-float gm_vec3_dotprod(const union gm_vec3 *v0, const union gm_vec3 *v1);
+float gm_vec3_dot(const union gm_vec3 *v0, const union gm_vec3 *v1);
 void gm_vec3_len(union gm_vec3 *v);
 float gm_vec3_angle(const union gm_vec3 *v0, const union gm_vec3 *v1);
 void gm_vec3_normalize(union gm_vec3 *v);
@@ -144,6 +157,7 @@ float gm_line_len(union gm_line *l);
 void gm_line_perp(union gm_line *in, union gm_line *out);
 void gm_reflect_line(union gm_line *l);
 void gm_line_center(union gm_line *l);
+float gm_line_slope(union gm_line *l);
 void gm_line_div2(union gm_line *l);
 uint8_t gm_line_intersect(union gm_line *l1, union gm_line *l2,
   union gm_point2 *p);
