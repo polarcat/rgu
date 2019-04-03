@@ -380,6 +380,9 @@ static struct glyph *lookup_glyph(const struct font *font, uint32_t code)
 static uint32_t *prepare_char(const struct font *font, uint32_t code,
   uint32_t *rgba, uint16_t row_len)
 {
+	if (!code)
+		return rgba;
+
 	struct glyph *glyph = lookup_glyph(font, code);
 
 	if (!glyph) {
