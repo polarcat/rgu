@@ -77,9 +77,11 @@ static inline struct list_head *list_prev(struct list_head *item,
 		return item;
 }
 
+#ifndef container_of
 #define container_of(ptr, type, member) __extension__ ({\
 	const __typeof__(((type *) 0)->member) * __mptr = (ptr);\
 	(type *) ((char *) __mptr - offsetof(type, member)); })
+#endif
 
 #define list_entry(ptr, type, member) container_of(ptr, type, member)
 
