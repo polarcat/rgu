@@ -166,6 +166,7 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer,
 	public boolean onTouchEvent(MotionEvent e)
 	{
 		switch (e.getAction()) {
+		case MotionEvent.ACTION_MOVE: /* fall through */
 		case MotionEvent.ACTION_DOWN:
 			scene.input(e.getX(), e.getY());
 			break;
