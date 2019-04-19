@@ -98,9 +98,9 @@ uint8_t get_asset(const char *path, struct asset_info *ainfo, const void *amgr)
 
 		return 1;
 	}
-#else
-	return map_asset(path, ainfo);
 #endif
+
+	return map_asset(path, ainfo);
 }
 
 void put_image(struct image_info *iinfo)
