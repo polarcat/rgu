@@ -15,6 +15,7 @@ lib3d/tools.c \
 lib3d/icon.c \
 lib3d/game.c \
 utils/image.c \
+utils/asset.c \
 utils/sensors.c \
 
 game = game/sources.mk

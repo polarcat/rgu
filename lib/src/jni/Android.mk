@@ -17,6 +17,7 @@ lib3d/sb.c \
 lib3d/plotter.c \
 lib3d/game.c \
 utils/image.c \
+utils/asset.c \
 utils/sensors.c \
 
 game = $(LOCAL_PATH)/game/sources.mk
