@@ -16,6 +16,7 @@ lib3d/cv.c \
 lib3d/sb.c \
 lib3d/plotter.c \
 lib3d/game.c \
+lib3d/wfobj.c \
 utils/image.c \
 utils/asset.c \
 utils/sensors.c \
