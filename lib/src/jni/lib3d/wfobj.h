@@ -1,4 +1,4 @@
-/* obj.h: rudimentary wavefront object loader
+/* wfobj.h: rudimentary wavefront object loader
  *
  * Copyright (c) 2019 Aliaksei Katovich <aliaksei.katovich at gmail.com>
  *
@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 
+#include <lib3d/gm.h>
 #include <utils/color.h>
 #include <utils/list.h>
 
@@ -35,11 +36,12 @@ struct wfobj {
 struct model {
 	struct list_head objects;
 	union color_rgb rgb; /* if all planes are >= 0 then ignore mtl and use this color */
-	float min[3];
-	float max[3];
+	union gm_point3 min;
+	union gm_point3 max;
+	uint8_t ignore_texture;
 	void *ctx; /* privately owned context */
 };
 
-uint8_t prepare_model(const char *path, struct model *model, void *assets_manager);
+uint8_t prepare_model(const char *path, struct model *model, void *amgr);
 void upload_model(struct model *model);
 void erase_model(struct model *model);

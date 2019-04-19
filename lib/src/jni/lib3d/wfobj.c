@@ -7,25 +7,11 @@
  */
 
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/stat.h>
 #include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
 #define TAG "wfobj"
 
-#define USE_MMAP
-
-#ifdef HAVE_LIB3D
-#undef USE_MMAP
-#include "asset.h"
-//#else
-//#define STB_IMAGE_IMPLEMENTATION
-//#include "stb_image.h"
-#endif
-
+#include <utils/asset.h>
 #include <utils/image.h>
 #include <utils/utils.h>
 #include <utils/time.h>
@@ -49,14 +35,8 @@
 }
 
 struct context {
-	const void *assets_manager;
+	const void *amgr;
 	uint16_t objects_num;
-};
-
-struct mmap_info {
-	int fd;
-	size_t len;
-	char *buf;
 };
 
 struct texlib_item {
@@ -112,83 +92,6 @@ struct object_info {
 	struct context *ctx;
 };
 
-static void unmap_file(struct mmap_info *info)
-{
-	if (info->buf)
-		munmap((void *) info->buf, info->len);
-
-	if (info->fd >= 0)
-		close(info->fd);
-
-	info->fd = -1;
-}
-
-static uint8_t map_file(const char *path, struct mmap_info *info)
-{
-	struct stat st;
-
-	info->buf = NULL;
-	info->fd = -1;
-
-	if (stat(path, &st) < 0 || S_ISDIR(st.st_mode)) {
-		ee("failed to get file size | path '%s'\n", path);
-		return 0;
-	}
-
-	if ((info->fd = open(path, O_RDWR)) < 0) {
-		ee("failed to open file '%s'\n", path);
-		return 0;
-	}
-
-	info->buf = (char *) mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE,
-	  info->fd, 0);
-
-	if (!info->buf) {
-		ee("failed to map file %s\n", path);
-		close(info->fd);
-		info->fd = -1;
-		return 0;
-	}
-
-	info->len = st.st_size;
-	return 1;
-}
-
-static char *read_file(const char *path, size_t *len)
-{
-	struct stat st;
-
-	if (stat(path, &st) < 0 || S_ISDIR(st.st_mode)) {
-		ee("failed to get file size | path '%s'\n", path);
-		return NULL;
-	}
-
-	int fd;
-
-	if ((fd = open(path, O_RDONLY)) < 0) {
-		ee("failed to open file '%s'\n", path);
-		return NULL;
-	}
-
-	size_t ret;
-	char *buf;
-
-	if (!(buf = calloc(1, st.st_size))) {
-		ee("failed to allocate %zu bytes\n", st.st_size);
-	} else {
-		if ((ret = read(fd, buf, st.st_size)) == st.st_size) {
-			*len = st.st_size;
-		} else {
-			ee("failed to read %zu bytes from file '%s'\n",
-			  st.st_size, path);
-			dealloc(buf);
-		}
-	}
-
-	close(fd);
-	return buf;
-}
-
 static GLuint default_texture(void)
 {
 	GLuint tex;
@@ -222,27 +125,11 @@ static GLuint generate_texture(void *data, uint16_t w, uint16_t h, uint32_t fmt)
 	return tex;
 }
 
-#ifdef HAVE_LIB3D
-static GLuint load_texture(const char *path, struct texture_cache *cache)
-{
-	uint16_t w;
-	uint16_t h;
-	uint32_t fmt;
-
-	if (!path || !cache->assets_manager)
-		return cache->deftex;
-
-	return cache->deftex;
-}
-#else
 static GLuint load_texture(const char *path, struct texture_cache *cache)
 {
 	if (!path)
 		return cache->deftex;
 
-	int w;
-	int h;
-	uint32_t fmt;
 	struct list_head *cur;
 	struct texture_info *texinfo;
 
@@ -253,14 +140,30 @@ static GLuint load_texture(const char *path, struct texture_cache *cache)
 			return texinfo->id;
 	}
 
-	int planes;
-	struct image img;
+	struct asset_info ainfo;
+	struct image_info iinfo;
 
-	if (!readpng(path, &img))
+	if (!get_asset(path, &ainfo, cache->ctx->amgr))
 		return cache->deftex;
 
-	GLuint texid = generate_texture(img.data, img.w, img.h, img.format);
-	free(img.data);
+	if (!get_image(&ainfo, &iinfo)) {
+		put_asset(&ainfo);
+		return cache->deftex;
+	}
+
+	uint32_t fmt;
+
+	if (iinfo.planes == 3)
+		fmt = GL_RGB;
+	else if (iinfo.planes == 4)
+		fmt = GL_RGBA;
+	else
+		fmt = GL_RGB;
+
+	GLuint texid = generate_texture(iinfo.image, iinfo.w, iinfo.h, fmt);
+
+	put_image(&iinfo);
+	put_asset(&ainfo);
 
 	if (!(texinfo = calloc(1, sizeof(*texinfo)))) {
 		ee("failed to allocate memory for texture cache item\n");
@@ -276,7 +179,6 @@ static GLuint load_texture(const char *path, struct texture_cache *cache)
 
 	return texid;
 }
-#endif
 
 static inline void upload_object(struct wfobj *obj, struct texture_cache *cache)
 {
@@ -298,14 +200,7 @@ static inline void upload_object(struct wfobj *obj, struct texture_cache *cache)
 	  obj->indices_num * sizeof(uint16_t), obj->indices, GL_STATIC_DRAW);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-#ifdef HAVE_LIB3D
-	if (obj->ctx->assets_manager && !obj->tex)
-		obj->tex = load_texture(obj->texname, cache);
-	else if (!obj->tex)
-		obj->tex = load_texture(obj->texname, cache);
-#else
 	obj->tex = load_texture(obj->texname, cache);
-#endif
 
 	ii("prepared | vbo %u, %u elements | ibo %u, %u indices | tex %u\n",
 	  obj->vbo, obj->array_size, obj->ibo, obj->indices_num, obj->tex);
@@ -374,6 +269,20 @@ static uint8_t prepare_object(struct model *model, struct object_info *info)
 		obj->array[obj->array_size++] = vx;
 		obj->array[obj->array_size++] = vy;
 		obj->array[obj->array_size++] = vz;
+
+		if (model->max.x < vx)
+			model->max.x = vx;
+		if (model->max.y < vy)
+			model->max.y = vy;
+		if (model->max.z < vz)
+			model->max.z = vz;
+
+		if (model->min.x > vx)
+			model->min.x = vx;
+		if (model->min.y > vy)
+			model->min.y = vy;
+		if (model->min.z > vz)
+			model->min.z = vz;
 
 		obj->indices[obj->indices_num++] = i;
 
@@ -501,26 +410,15 @@ static void prepare_texlib(char *buf, size_t len, struct texlib *texlib)
 
 static void prepare_mtllib(const char *path, struct texlib *texlib)
 {
-	struct mmap_info mapinfo;
+	struct asset_info ainfo;
 
 	ii("prepare materials library %s\n", path);
 
-#ifdef USE_MMAP
-	if (!map_file(path, &mapinfo))
+	if (!get_asset(path, &ainfo, texlib->ctx->amgr))
 		return;
 
-	prepare_texlib(mapinfo.buf, mapinfo.len, texlib);
-	unmap_file(&mapinfo);
-#else
-	size_t len;
-	char *buf = read_file(path, &len);
-
-	if (!buf)
-		return;
-
-	prepare_texlib(buf, len, texlib);
-	free(buf);
-#endif /* USE_MMAP */
+	prepare_texlib((char *) ainfo.buf, ainfo.len, texlib);
+	put_asset(&ainfo);
 }
 
 static inline char *parse_indices(char *token, uint16_t *vi, uint16_t *ti,
@@ -629,9 +527,11 @@ static void prepare_indices(char *str, struct object_info *info)
 			info->normal_indices[info->normal_indices_idx++] = ni[1];
 			info->normal_indices[info->normal_indices_idx++] = ni[2];
 
-			info->uv_indices[info->uv_indices_idx++] = ti[0];
-			info->uv_indices[info->uv_indices_idx++] = ti[1];
-			info->uv_indices[info->uv_indices_idx++] = ti[2];
+			if (info->uv_indices) {
+				info->uv_indices[info->uv_indices_idx++] = ti[0];
+				info->uv_indices[info->uv_indices_idx++] = ti[1];
+				info->uv_indices[info->uv_indices_idx++] = ti[2];
+			}
 		} else if (verts_num == 4 && n == 4) { /* then triangulate */
 			n = 0;
 			info->vertex_indices[info->vertex_indices_idx++] = vi[0];
@@ -648,12 +548,14 @@ static void prepare_indices(char *str, struct object_info *info)
 			info->normal_indices[info->normal_indices_idx++] = ni[2];
 			info->normal_indices[info->normal_indices_idx++] = ni[3];
 
-			info->uv_indices[info->uv_indices_idx++] = ti[0];
-			info->uv_indices[info->uv_indices_idx++] = ti[1];
-			info->uv_indices[info->uv_indices_idx++] = ti[2];
-			info->uv_indices[info->uv_indices_idx++] = ti[0];
-			info->uv_indices[info->uv_indices_idx++] = ti[2];
-			info->uv_indices[info->uv_indices_idx++] = ti[3];
+			if (info->uv_indices) {
+				info->uv_indices[info->uv_indices_idx++] = ti[0];
+				info->uv_indices[info->uv_indices_idx++] = ti[1];
+				info->uv_indices[info->uv_indices_idx++] = ti[2];
+				info->uv_indices[info->uv_indices_idx++] = ti[0];
+				info->uv_indices[info->uv_indices_idx++] = ti[2];
+				info->uv_indices[info->uv_indices_idx++] = ti[3];
+			}
 		} else if (n > 4) {
 			ww("more than 4 vertices per face is not supported\n");
 			n = 0;
@@ -684,23 +586,39 @@ static uint8_t prepare_context(struct model *model)
 
 static inline void unmap_object_info(struct object_info *info)
 {
-	munmap(info->vertices, MAP_SIZE);
-	info->vertices = NULL;
-	munmap(info->vertex_indices, MAP_SIZE);
-	info->vertex_indices = NULL;
+	if (info->vertices) {
+		munmap(info->vertices, MAP_SIZE);
+		info->vertices = NULL;
+	}
 
-	munmap(info->normals, MAP_SIZE);
-	info->normals = NULL;
-	munmap(info->normal_indices, MAP_SIZE);
-	info->normal_indices = NULL;
+	if (info->vertex_indices) {
+		munmap(info->vertex_indices, MAP_SIZE);
+		info->vertex_indices = NULL;
+	}
 
-	munmap(info->uvs, MAP_SIZE);
-	info->uvs = NULL;
-	munmap(info->uv_indices, MAP_SIZE);
-	info->uv_indices = NULL;
+	if (info->normals) {
+		munmap(info->normals, MAP_SIZE);
+		info->normals = NULL;
+	}
+
+	if (info->normal_indices) {
+		munmap(info->normal_indices, MAP_SIZE);
+		info->normal_indices = NULL;
+	}
+
+	if (info->uvs) {
+		munmap(info->uvs, MAP_SIZE);
+		info->uvs = NULL;
+	}
+
+	if (info->uv_indices) {
+		munmap(info->uv_indices, MAP_SIZE);
+		info->uv_indices = NULL;
+	}
 }
 
-static inline uint8_t map_object_info(struct object_info *info)
+static inline uint8_t map_object_info(struct object_info *info,
+  uint8_t ignore_texture)
 {
 	uint32_t prot = PROT_READ | PROT_WRITE;
 	uint32_t flags = MAP_ANONYMOUS | MAP_PRIVATE;
@@ -726,11 +644,16 @@ static inline uint8_t map_object_info(struct object_info *info)
 	if (!(info->normal_indices = mmap(NULL, MAP_SIZE, prot, flags, -1, 0)))
 		return 0;
 
-	if (!(info->uvs = mmap(NULL, MAP_SIZE, prot, flags, -1, 0)))
-		return 0;
+	if (ignore_texture) {
+		info->uvs = NULL;
+		info->uv_indices = NULL;
+	} else {
+		if (!(info->uvs = mmap(NULL, MAP_SIZE, prot, flags, -1, 0)))
+			return 0;
 
-	if (!(info->uv_indices = mmap(NULL, MAP_SIZE, prot, flags, -1, 0)))
-		return 0;
+		if (!(info->uv_indices = mmap(NULL, MAP_SIZE, prot, flags, -1, 0)))
+			return 0;
+	}
 
 	return 1;
 }
@@ -749,7 +672,7 @@ uint8_t load_model(char *buf, size_t len, struct model *model)
 
 	list_init(&texlib.items);
 
-	if (!map_object_info(&info)) {
+	if (!map_object_info(&info, model->ignore_texture)) {
 		ee("failed to map object info data\n");
 		return 0;
 	}
@@ -827,7 +750,8 @@ uint8_t load_model(char *buf, size_t len, struct model *model)
 			info.normals[info.normals_idx++] = normal.x;
 			info.normals[info.normals_idx++] = normal.y;
 			info.normals[info.normals_idx++] = normal.z;
-		} else if (str[0] == 'v' && str[1] == 't') { /* texture uv */
+		} else if (!model->ignore_texture &&
+		  str[0] == 'v' && str[1] == 't') { /* texture uv */
 			union gm_point2 uv;
 			uint8_t n = sscanf(str, "vt %f %f\n", &uv.x, &uv.y);
 
@@ -849,6 +773,9 @@ uint8_t load_model(char *buf, size_t len, struct model *model)
 	ii("prepared %u objects in %u ms\n", info.ctx->objects_num,
 	  time_ms() - start_time);
 
+	ii("model extents min { %.4f %.4f %.4f } max { %.4f %.4f %.4f }\n",
+	  model->min.x, model->min.y, model->min.z,
+	  model->max.x, model->max.y, model->max.z);
 out:
 	free((void *) info.name);
 	unmap_object_info(&info);
@@ -890,7 +817,7 @@ void erase_model(struct model *model)
 	dealloc(model->ctx);
 }
 
-uint8_t prepare_model(const char *path, struct model *model, void *assets_manager)
+uint8_t prepare_model(const char *path, struct model *model, void *amgr)
 {
 	ii("read file %s\n", path);
 
@@ -899,40 +826,28 @@ uint8_t prepare_model(const char *path, struct model *model, void *assets_manage
 		return 0;
 	}
 
+	model->min.x = model->min.y = model->min.z = UINT32_MAX;
+	model->max.x = model->max.y = model->max.z = 0;
+
 	list_init(&model->objects);
 
-	((struct context *) model->ctx)->assets_manager = assets_manager;
-	struct mmap_info mapinfo;
+	((struct context *) model->ctx)->amgr = amgr;
 
-#ifdef USE_MMAP
-	if (!map_file(path, &mapinfo)) {
+	struct asset_info ainfo;
+
+	if (!get_asset(path, &ainfo, amgr)) {
 		dealloc(model->ctx);
 		return 0;
 	}
 
-	uint8_t ret = load_model(mapinfo.buf, mapinfo.len, model);
+	uint8_t ret = load_model((char *) ainfo.buf, ainfo.len, model);
 
 	if (!ret)
 		erase_model(model);
 
-	unmap_file(&mapinfo);
-	return ret;
-#else
-	size_t len;
-	char *buf = read_file(path, &len);
-
-	if (!buf) {
-		dealloc(model->ctx);
-		return 0;
-	}
-
-	uint8_t ret = load_model(buf, len, model);
-
-	if (!ret)
-		erase_model(model);
+	put_asset(&ainfo);
 
 	return ret;
-#endif
 }
 
 void upload_model(struct model *model)
