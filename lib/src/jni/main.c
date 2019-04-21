@@ -104,6 +104,9 @@ static uint8_t devreq(int req, void *arg)
 
 static void render(void)
 {
+#ifdef GAME_MODE
+	game_render();
+#else
 #ifdef STATIC_BG
 	if (!rgba_)
 		bg_render(0);
@@ -120,6 +123,7 @@ static void render(void)
 	bg_render(0);
 	cv_render();
 #endif
+#endif /* GAME_MODE */
 }
 
 static void handle_resize(xcb_resize_request_event_t *e)
@@ -341,6 +345,10 @@ static void resize_window(uint16_t w, uint16_t h)
 
 static int init_scene(const char *path)
 {
+#ifdef GAME_MODE
+	game_open(NULL);
+	game_resize(bmp_.w, bmp_.h);
+#else
 #ifdef STATIC_BG
 	if (!path) {
 		bg_open_color();
@@ -367,6 +375,7 @@ static int init_scene(const char *path)
 	cv_resize(bmp_.w, bmp_.h);
 	texid_ = bg_open();
 #endif
+#endif /* GAME_MODE */
 
 	return 0;
 }

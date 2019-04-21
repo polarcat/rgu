@@ -57,6 +57,10 @@ jnicall(int, open, JNIEnv *env, jclass class, jobject asset_manager)
 	void *assets = NULL;
 #endif
 
+#ifdef GAME_MODE
+	game_open(assets);
+	return 0;
+#else
 #ifdef STATIC_BG
 	bg_open_color();
 	game_open(assets);
@@ -76,6 +80,7 @@ jnicall(int, open, JNIEnv *env, jclass class, jobject asset_manager)
 	cv_open(font0_, font1_, CV_BLOCK);
 	return bg_open();
 #endif
+#endif /* GAME_MODE */
 }
 
 jnicall(void, render, JNIEnv *env, jclass class)
@@ -87,6 +92,9 @@ jnicall(void, render, JNIEnv *env, jclass class)
 		sem_wait(&run_);
 #endif
 
+#ifdef GAME_MODE
+	game_render();
+#else
 #ifdef STATIC_BG
 	bg_render_color(.3, .5, .8, 1);
 	game_render();
@@ -97,6 +105,7 @@ jnicall(void, render, JNIEnv *env, jclass class)
 	bg_render(0);
 	cv_render();
 #endif
+#endif /* GAME_MODE */
 //	print_fps(render);
 }
 
