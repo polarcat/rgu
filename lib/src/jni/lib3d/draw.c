@@ -134,8 +134,7 @@ void draw_point2d(float x, float y, float r, float g, float b, float size)
 	struct prog *prog = &prog2ds_;
 	float pos[2] = { x, y, };
 
-	gl_disable_features();
-
+	glDisable(GL_CULL_FACE);
 	glUseProgram(prog->id);
 
 	glUniform3f(prog->u_color, r, g, b);
@@ -146,8 +145,7 @@ void draw_point2d(float x, float y, float r, float g, float b, float size)
 	glDrawArrays(GL_POINTS, 0, 1);
 
 	glDisableVertexAttribArray(prog->a_pos);
-
-	gl_enable_features();
+	glEnable(GL_CULL_FACE);
 }
 
 void draw_line2d(float x0, float y0, float x1, float y1, float r, float g,
@@ -156,8 +154,7 @@ void draw_line2d(float x0, float y0, float x1, float y1, float r, float g,
 	struct prog *prog = &prog2ds_;
 	float pos[4] = { x0, y0, x1, y1, };
 
-	gl_disable_features();
-
+	glDisable(GL_CULL_FACE);
 	glUseProgram(prog->id);
 
 	glUniform3f(prog->u_color, r, g, b);
@@ -168,14 +165,12 @@ void draw_line2d(float x0, float y0, float x1, float y1, float r, float g,
 	glDrawArrays(GL_LINES, 0, 2);
 
 	glDisableVertexAttribArray(prog->a_pos);
-
-	gl_enable_features();
+	glEnable(GL_CULL_FACE);
 }
 
 static inline void draw_points(struct points *points, struct prog *prog)
 {
-	gl_disable_features();
-
+	glDisable(GL_CULL_FACE);
 	glUseProgram(prog->id);
 
 	glVertexAttribPointer(prog->a_pos, points->n, GL_FLOAT, GL_FALSE, 0,
@@ -196,8 +191,7 @@ static inline void draw_points(struct points *points, struct prog *prog)
 	glDisableVertexAttribArray(prog->a_pos);
 	glDisableVertexAttribArray(prog->a_rgb);
 	glDisableVertexAttribArray(prog->a_size);
-
-	gl_enable_features();
+	glEnable(GL_CULL_FACE);
 }
 
 void draw_points2d(struct points *points)
@@ -214,8 +208,7 @@ void draw_points3d(struct points *points)
 
 static inline void draw_lines(struct lines *lines, struct prog *prog)
 {
-	gl_disable_features();
-
+	glDisable(GL_CULL_FACE);
 	glUseProgram(prog->id);
 
 	glVertexAttribPointer(prog->a_pos, lines->n, GL_FLOAT, GL_FALSE, 0,
@@ -231,8 +224,7 @@ static inline void draw_lines(struct lines *lines, struct prog *prog)
 
 	glDisableVertexAttribArray(prog->a_pos);
 	glDisableVertexAttribArray(prog->a_rgb);
-
-	gl_enable_features();
+	glEnable(GL_CULL_FACE);
 }
 
 void draw_lines2d(struct lines *lines)

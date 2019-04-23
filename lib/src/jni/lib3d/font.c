@@ -178,7 +178,7 @@ static void render_text(struct font *font, struct text *text, float x, float y)
 	  wh[2], wh[3]
 	);
 #endif
-
+	glDisable(GL_CULL_FACE);
 	glBindTexture(GL_TEXTURE_2D, font->tex);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, text->bitmap.w, text->bitmap.h,
 	  0, GL_RGBA, GL_UNSIGNED_BYTE, text->bitmap.data);
@@ -198,6 +198,7 @@ static void render_text(struct font *font, struct text *text, float x, float y)
 	glDisableVertexAttribArray(font->a_pos);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
+	glEnable(GL_CULL_FACE);
 
 	free(text->bitmap.data);
 	text->bitmap.data = NULL;
