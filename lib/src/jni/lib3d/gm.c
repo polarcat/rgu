@@ -444,6 +444,14 @@ float gm_line_len(union gm_line *l)
 	return sqrt(x * x + y * y);
 }
 
+float gm_point_dist(union gm_point2 *p0, union gm_point2 *p1)
+{
+	float x = p1->x - p0->x;
+	float y = p1->y - p0->y;
+
+	return sqrt(x * x + y * y);
+}
+
 uint8_t gm_line_intersect(union gm_line *l1, union gm_line *l2,
   union gm_point2 *p)
 {

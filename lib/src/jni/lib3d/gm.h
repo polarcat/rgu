@@ -162,6 +162,7 @@ void gm_line_div2(union gm_line *l);
 uint8_t gm_line_intersect(union gm_line *l1, union gm_line *l2,
   union gm_point2 *p);
 uint8_t gm_circle_intersect(union gm_line *l, float r, union gm_point2 *p);
+float gm_point_dist(union gm_point2 *p0, union gm_point2 *p1);
 
 #define radians(angle) ((angle) * (M_PI) / 180)
 #define degrees(angle) ((angle) * 180 / (M_PI))
