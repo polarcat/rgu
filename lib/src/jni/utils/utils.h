@@ -21,6 +21,11 @@
 })
 #endif
 
+#define dealloc(mem) {\
+	free((void *) mem);\
+	mem = NULL;\
+}
+
 static inline void sem_post_checked(sem_t *sem)
 {
 	int val = 1; /* to skip error checking */
