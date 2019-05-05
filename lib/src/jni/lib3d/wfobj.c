@@ -23,11 +23,6 @@
 #define STR_LEN 128
 #define MAP_SIZE (2 * 1024000) /* 2 * 256000 vertices */
 
-#define dealloc(mem) {\
-	free((void *) mem);\
-	mem = NULL;\
-}
-
 #define strip_str(str) {\
 	uint8_t pos = strlen(str) - 1;\
 	if (str[pos] == '\n' || str[pos] == '\r')\
