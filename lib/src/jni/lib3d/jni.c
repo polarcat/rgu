@@ -148,10 +148,16 @@ jnicall(void, close, JNIEnv *env, jclass class)
 
 jnicall(void, pause, JNIEnv *env, jclass class)
 {
+#ifdef GAME_MODE
+	game_pause();
+#endif
 }
 
 jnicall(void, resume, JNIEnv *env, jclass class, jobject ctx, jobject act)
 {
+#ifdef GAME_MODE
+	game_resume();
+#endif
 }
 
 static void post_sem()

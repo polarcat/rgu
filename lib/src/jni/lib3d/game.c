@@ -92,6 +92,16 @@ void game_close(void)
 	gm_close();
 }
 
+void game_pause(void)
+{
+	handle_pause();
+}
+
+void game_resume(void)
+{
+	handle_resume();
+}
+
 #ifdef DRAW_AXIS
 static inline void draw_axis(void)
 {

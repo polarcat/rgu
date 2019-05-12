@@ -176,11 +176,13 @@ static void handle_key_press(xcb_key_press_event_t *e)
 	} else if (sym == XK_Return) {
 	} else if (sym == XK_space) {
 		if (pause_) {
-			dd("continue\n");
+			dd("resume\n");
 			pause_ = 0;
+			game_resume();
 		} else {
 			dd("pause\n");
 			pause_ = 1;
+			game_pause();
 		}
 	} else if (sym == XK_BackSpace) {
 	} else {
