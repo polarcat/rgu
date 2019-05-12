@@ -192,6 +192,12 @@ extern uint16_t gm_max_x_;
 void gm_open(uint16_t x_max);
 void gm_close(void);
 
+#define gm_ndc_x(x) (((x) + 1.) * .5)
+#define gm_ndc_y(y) (((y) + 1.) * .5)
+
+#define gm_denorm_x(x, w) ((w) * .5 * ((x) + 1.))
+#define gm_denorm_y(y, h) ((h) * .5 * ((y) + 1.))
+
 #define gm_norm_x(x, w) ((x) / ((w) * .5) - 1.)
 #define gm_norm_y(y, h) (1. - (y) / ((h) * .5))
 #define gm_norm_z(z, h) (1. / (h) * (z))
