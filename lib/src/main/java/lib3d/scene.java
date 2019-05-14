@@ -14,7 +14,7 @@ public class scene {
 	/* scene interfaces */
 
 	public static native int open(AssetManager assetManager);
-	public static native void render();
+	public static native int render();
 	public static native void resize(int w, int h);
 	public static native void rotate(int r);
 	public static native void resume(Context context, Activity activity);

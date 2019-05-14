@@ -15,6 +15,6 @@ void game_open(void *assets);
 void game_close(void);
 void game_pause(void);
 void game_resume(void);
-void game_render(void);
+int game_render(void);
 void game_resize(uint16_t w, uint16_t h);
 void game_touch(float x, float y);

@@ -83,7 +83,7 @@ jnicall(int, open, JNIEnv *env, jclass class, jobject asset_manager)
 #endif /* GAME_MODE */
 }
 
-jnicall(void, render, JNIEnv *env, jclass class)
+jnicall(int, render, JNIEnv *env, jclass class)
 {
 #ifdef FRAME_BY_FRAME
 	sem_wait(&run_);
@@ -93,11 +93,11 @@ jnicall(void, render, JNIEnv *env, jclass class)
 #endif
 
 #ifdef GAME_MODE
-	game_render();
+	return game_render();
 #else
 #ifdef STATIC_BG
 	bg_render_color(.3, .5, .8, 1);
-	game_render();
+	return game_render();
 #elif defined(IMAGE_VIEWER)
 	img_render();
 	sb_render();
@@ -107,6 +107,7 @@ jnicall(void, render, JNIEnv *env, jclass class)
 #endif
 #endif /* GAME_MODE */
 //	print_fps(render);
+	return 0;
 }
 
 jnicall(void, resize, JNIEnv *env, jclass class, int w, int h)

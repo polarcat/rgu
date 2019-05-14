@@ -120,11 +120,11 @@ static inline void draw_axis(void)
 #define draw_axis() ;
 #endif
 
-void game_render(void)
+int game_render(void)
 {
 	touch_x_ = 0;
 	touch_y_ = 0;
 
 	draw_axis();
-	handle_frame();
+	return handle_frame();
 }
