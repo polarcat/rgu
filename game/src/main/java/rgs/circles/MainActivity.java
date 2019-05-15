@@ -21,6 +21,8 @@ import android.media.AudioManager;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.lang.Thread;
+import java.util.concurrent.Semaphore;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -35,12 +37,16 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer
 	private static final int SND_TARGET_BOUNCE = 3;
 	private static final int SND_TARGET_GROUND = 4;
 	private static final int SND_TARGET_HIDE = 5;
-	private static final int SND_MAX = 6;
+	private static final int SND_GAME_OVER = 6;
+	private static final int SND_ROW_ADDED = 7;
+	private static final int SND_MAX = 8;
 
 	private int sounds_[];
 	private static final String TAG = "rgs: ";
 	private GLSurfaceView surface_;
 	private SoundPool audio_;
+	private Semaphore sem_;
+	private SoundPlayer player_;
 
 	private void setFullscreen()
 	{
@@ -75,6 +81,10 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer
 
 		setContentView(surface_);
 		initSounds();
+
+		sem_ = new Semaphore(0);
+		player_ = new SoundPlayer();
+		player_.start();
 	}
 
 	@Override
@@ -128,6 +138,10 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer
 	public void onDrawFrame(GL10 gl)
 	{
 		int sounds = scene.render();
+
+		if (sounds != 0) {
+			sem_.release();
+		}
 	}
 
 	@Override
@@ -137,7 +151,7 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer
 		case MotionEvent.ACTION_MOVE: /* fall through */
 		case MotionEvent.ACTION_DOWN:
 			if (e.getAction() == MotionEvent.ACTION_DOWN)
-				playSound(0);
+				sem_.release();
 
 			scene.input(e.getX(), e.getY());
 			break;
@@ -171,13 +185,25 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer
 
 		AssetFileDescriptor afd;
 
-//		sounds_[SND_BUTTON_TOUCH] = audio_.load("/sdcard/sounds/touch_btn.ogg", 1);
+		String files[] = {
+			"sounds/touch-btn.ogg",
+			"sounds/player-move.ogg",
+			"sounds/player-bounce.ogg",
+			"sounds/target-bounce.ogg",
+			"sounds/target-ground.ogg",
+			"sounds/target-hide.ogg",
+			"sounds/game-over.ogg",
+			"sounds/row-added.ogg",
+		};
 
-		try {
-			afd = getAssets().openFd("sounds/touch_btn.ogg");
-			sounds_[SND_BUTTON_TOUCH] = audio_.load(afd, 1);
-		}  catch (IOException e) {
-			e.printStackTrace();
+		for (int i = 0; i < SND_MAX; ++i) {
+			try {
+				Log.i(TAG, "load " + files[i]);
+				afd = getAssets().openFd(files[i]);
+				sounds_[i] = audio_.load(afd, 1);
+			}  catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -188,5 +214,20 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer
 
 		Log.i(TAG, "play sound " + id);
 		audio_.play(sounds_[id], 1, 1, 1, 0, 1.f);
+	}
+
+	private class SoundPlayer extends Thread {
+		@Override
+		public void run()
+		{
+			while (true) {
+				try {
+					sem_.acquire();
+					playSound(0);
+				} catch (InterruptedException e) {
+					Log.e(TAG, "failed to acquire semaphore");
+				}
+			}
+		}
 	}
 }
