@@ -1,7 +1,11 @@
 lib/src/jni/libcv
 lib/src/jni/algo
-build
-tags
-.gradle
+lib/src/jni/game
+lib/src/jni/quartic
+circles/
+build/
+.android/
+.gradle/
 .externalNativeBuild
 *.swp
+tags
