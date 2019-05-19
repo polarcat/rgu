@@ -23,9 +23,7 @@
 #include "draw.h"
 #include "plotter.h"
 
-#ifdef HAVE_GAME
 #include <game/game.h>
-#endif
 
 static uint8_t resize_;
 
@@ -80,7 +78,6 @@ void game_open(void *assets)
 	img_w_ = wh[2];
 	img_h_ = wh[3];
 
-	draw_init(); /* for debug drawing */
 	gm_open(img_w_ / 4);
 	handle_setup(assets);
 

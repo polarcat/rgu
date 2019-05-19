@@ -114,14 +114,17 @@ jnicall(void, resize, JNIEnv *env, jclass class, int w, int h)
 {
 	ii("new wh { %d, %d }\n", w, h);
 
+#ifdef GAME_MODE
+	game_resize(w, h);
+#else
 #ifdef STATIC_BG
 	bg_resize(w, h);
-	game_resize(w, h);
 #elif defined(IMAGE_VIEWER)
 	img_resize(w, h);
 #else
 	bg_resize(w, h);
 	cv_resize(w, h);
+#endif
 #endif
 }
 
@@ -131,8 +134,10 @@ jnicall(void, rotate, JNIEnv *env, jclass class, int r)
 
 jnicall(void, close, JNIEnv *env, jclass class)
 {
-#ifdef STATIC_BG
+#ifdef GAME_MODE
 	game_close();
+#else
+#ifdef STATIC_BG
 	bg_close();
 #elif defined(IMAGE_VIEWER)
 	close_font(&font0_);
@@ -144,6 +149,7 @@ jnicall(void, close, JNIEnv *env, jclass class)
 	close_font(&font1_);
 	bg_close();
 	cv_close();
+#endif
 #endif
 }
 
@@ -196,22 +202,28 @@ jnicall(void, input, JNIEnv *env, jclass class, float x, float y)
 jnicall(void, rmatrix, JNIEnv *env, jclass class, float a0, float a1, float a2,
   float a3, float a4, float a5, float a6, float a7, float a8)
 {
+#ifndef GAME_MODE
 	if (!pause_)
 		sensors_update_rmatrix(a0, a1, a2, a3, a4, a5, a6, a7, a8);
+#endif
 }
 
 jnicall(void, imatrix, JNIEnv *env, jclass class, float a0, float a1, float a2,
   float a3, float a4, float a5, float a6, float a7, float a8)
 {
+#ifndef GAME_MODE
 	if (!pause_)
 		sensors_update_imatrix(a0, a1, a2, a3, a4, a5, a6, a7, a8);
+#endif
 }
 
 jnicall(void, orientation, JNIEnv *env, jclass class, float azimuth,
   float pitch, float roll)
 {
+#ifndef GAME_MODE
 	if (!pause_)
 		sensors_update_orientation(azimuth, pitch, roll);
+#endif
 }
 
 #ifdef __cplusplus

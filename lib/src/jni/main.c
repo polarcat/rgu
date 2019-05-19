@@ -128,7 +128,11 @@ static void render(void)
 
 static void handle_resize(xcb_resize_request_event_t *e)
 {
+#ifdef GAME_MODE
+	game_resize(bmp_.w, bmp_.h);
+#else
 	bg_resize(e->width, e->height);
+#endif
 #ifdef STATIC_BG
 	game_resize(e->width, e->height);
 #else
@@ -362,7 +366,7 @@ static int init_scene(const char *path)
 	bg_resize(bmp_.w, bmp_.h);
 	game_open(NULL);
 	game_resize(bmp_.w, bmp_.h);
-#else
+#elif defined (USE_FONT)
 	uint8_t codes_num;
 	uint32_t *codes = default_codes(&codes_num);
 
@@ -629,15 +633,20 @@ int main(int argc, const char *argv[])
 		v4l2_close(fd_);
 	}
 
+#ifdef USE_FONT
 	close_font(&font0_);
 	close_font(&font1_);
+#endif
 
-	bg_close();
-#ifdef STATIC_BG
+#ifdef GAME_MODE
 	game_close();
+#else
+#ifndef STATIC_BG
+	bg_close();
 #else
 	cv_close();
 #endif
+#endif /* GAME_MODE */
 
 	return 0;
 }

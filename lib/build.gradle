@@ -25,12 +25,14 @@ android {
             path 'src/jni/Android.mk'
         }
     }
+    /*
     sourceSets {
         main {
             jniLibs.srcDirs 'png/libs'
             jniLibs.srcDirs 'jpeg/libs'
         }
     }
+    */
     buildTypes {
         release {
             minifyEnabled true
