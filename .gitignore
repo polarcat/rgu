@@ -1,8 +1,3 @@
-lib/src/jni/libcv
-lib/src/jni/algo
-lib/src/jni/game
-lib/src/jni/quartic
-circles/
 build/
 .android/
 .gradle/
