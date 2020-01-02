@@ -38,6 +38,14 @@ struct round_rect {
     uint8_t *indices;
 };
 
+struct shape {
+    uint8_t verts_num;
+    union gm_point2 *verts;
+    union gm_point2 *uvs;
+    uint8_t *indices;
+    uint8_t indices_num;
+};
+
 /*
  * make unit rectangle with 0,0 origin
  *
@@ -48,6 +56,9 @@ struct round_rect {
  *
  * */
 
-uint8_t make_round_rect(uint8_t rn, float r, struct round_rect *rect);
-uint8_t make_round_icon(uint8_t rn, float r, struct round_rect *rect);
-void clean_round_rect(struct round_rect *rect);
+uint8_t make_round_rect(uint8_t rn, float r, struct round_rect *);
+uint8_t make_round_icon(uint8_t rn, float r, struct round_rect *);
+uint8_t make_round_label(uint8_t rn, float r, float hc, struct round_rect *);
+void clean_round_rect(struct round_rect *);
+
+uint8_t make_circle(struct shape *, uint8_t step);
