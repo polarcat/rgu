@@ -11,6 +11,7 @@
 
 #define TAG "wfobj"
 
+#include <rgu/mem.h>
 #include <rgu/asset.h>
 #include <rgu/image.h>
 #include <rgu/utils.h>
@@ -765,7 +766,7 @@ uint8_t load_model(char *buf, size_t len, struct model *model)
 		ret = prepare_object(model, &info);
 
 	ii("prepared %u objects in %u ms\n", info.ctx->objects_num,
-	  time_ms() - start_time);
+	  (uint32_t) time_ms() - start_time);
 
 	ii("model extents min { %.4f %.4f %.4f } max { %.4f %.4f %.4f }\n",
 	  model->min.x, model->min.y, model->min.z,
@@ -889,7 +890,7 @@ void upload_model(struct model *model)
 	}
 
 	ii("uploaded %u objects in %u ms | total bytes: array %u indices %u\n",
-	  cache.ctx->objects_num, time_ms() - start_time,
+	  cache.ctx->objects_num, (uint32_t) time_ms() - start_time,
 	  (uint32_t) (array_bytes * sizeof(float)),
 	  (uint32_t) (indices_bytes * sizeof(uint16_t)));
 }
