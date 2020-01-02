@@ -123,7 +123,8 @@ void gm_vec2_init(union gm_vec2 *v, const union gm_point2 *p0,
 float gm_vec2_dot(const union gm_vec2 *v0, const union gm_vec2 *v1);
 float gm_vec2_cos(const union gm_vec2 *v0, const union gm_vec2 *v1);
 float gm_vec2_angle(const union gm_vec2 *v0, const union gm_vec2 *v1);
-void gm_vec2_perp(union gm_vec2 *in, union gm_vec2 *out);
+void gm_vec2_perp_cc(union gm_vec2 *in, union gm_vec2 *out);
+void gm_vec2_perp_cw(union gm_vec2 *in, union gm_vec2 *out);
 void gm_vec2_normalize(union gm_vec2 *v);
 void gm_vec2_len(union gm_vec2 *v);
 void gm_vec2_rotate(union gm_vec2 *v, float a);
@@ -201,3 +202,8 @@ void gm_close(void);
 #define gm_norm_x(x, w) ((x) / ((w) * .5) - 1.)
 #define gm_norm_y(y, h) (1. - (y) / ((h) * .5))
 #define gm_norm_z(z, h) (1. / (h) * (z))
+
+static inline uint8_t pot(uint64_t val)
+{
+  return val && (!(val & (val - 1)));
+}

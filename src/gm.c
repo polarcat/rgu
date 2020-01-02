@@ -227,11 +227,18 @@ void gm_vec2_rotate(union gm_vec2 *v, float a)
 	v->y = v->x * sin(a) + v->y * cos(a);
 }
 
-void gm_vec2_perp(union gm_vec2 *in, union gm_vec2 *out)
+void gm_vec2_perp_cc(union gm_vec2 *in, union gm_vec2 *out)
 {
-	/* counterclockwise 90 degrees */
+	/* counterclockwise */
 	out->x = -in->y;
 	out->y = in->x;
+}
+
+void gm_vec2_perp_cw(union gm_vec2 *in, union gm_vec2 *out)
+{
+	/* clockwise */
+	out->x = in->y;
+	out->y = -in->x;
 }
 
 /* vector3 ops */
