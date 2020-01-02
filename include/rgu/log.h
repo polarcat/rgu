@@ -40,6 +40,7 @@
 #else
 #define dd(...) ;
 #endif
+#define tt(...) dd(...)
 #else /* not ANDROID */
 #include <stdio.h>
 #define ee(fmt, arg...) {\
@@ -54,6 +55,25 @@
 
 #define ii(fmt, arg...) printf("\033[0;32m(ii)\033[0m " LOG_TAG fmt, ##arg);
 #define ww(fmt, arg...) printf("\033[1;33m(ww)\033[0m " LOG_TAG fmt, ##arg);
+#if 0
+#define tt(fmt, arg...) {\
+        struct timespec now;\
+        clock_gettime(CLOCK_MONOTONIC, &now);\
+	uint32_t hh = now.tv_sec / 60 / 60;\
+	uint32_t mm = (now.tv_sec % 3600) / 60;\
+	uint32_t ss = (now.tv_sec % 60);\
+	float ms = (now.tv_nsec / 1000000.);\
+	printf("\033[0;34m(tt)\033[0m " LOG_TAG "[%u:%02u:%02u.%03.f] " fmt,\
+	  hh, mm, ss, ms, ##arg);\
+}
+#else
+#define tt(fmt, arg...) {\
+        struct timespec now;\
+        clock_gettime(CLOCK_MONOTONIC, &now);\
+	printf("\033[0;34m(tt)\033[0m " LOG_TAG "[%lu.%03.f] " fmt,\
+	  now.tv_sec, (now.tv_nsec / 1000000.), ##arg);\
+}
+#endif
 
 #ifdef DEBUG
 #define dd(fmt, arg...) {\
@@ -65,6 +85,17 @@
 #endif
 
 #endif /* ANDROID */
+
+#ifdef RELEASE
+#undef ww
+#undef ii
+#undef tt
+#undef dd
+#define ww(...) ;
+#define ii(...) ;
+#define tt(...) ;
+#define dd(...) ;
+#endif
 
 #define logv4(msg, v)\
 	ii("%s: { %+.2f %+.2f %+.2f %+.2f }\n", msg, v[0], v[1], v[2], v[3])
