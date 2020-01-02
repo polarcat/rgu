@@ -35,9 +35,14 @@
     glDepthMask(1);\
 }
 
+static uint8_t gl_error_once_;
+
 #define gl_error(msg) {\
 	for (GLint err = glGetError(); err; err = glGetError()) {\
-		ee("%s error '0x%x'\n", msg, err);\
+		if (!gl_error_once_) {\
+			ee("%s error '0x%x'\n", msg, err);\
+			gl_error_once_ = 1;\
+		}\
 	}\
 }
 
