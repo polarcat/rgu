@@ -8,10 +8,6 @@
 
 #pragma once
 
-#ifdef DRAW_AXIS
-#define USE_DRAW
-#endif
-
 #ifdef USE_DRAW
 
 #include <rgu/log.h>
@@ -62,7 +58,7 @@ static void draw_point(float x, float y, float r, float g, float b, float size)
 {
 	float pos[2] = { x, y, };
 
-	glDisable(GL_CULL_FACE);
+//	glDisable(GL_CULL_FACE);
 	glUseProgram(draw_prog_.id);
 
 	glUniform3f(draw_prog_.u_rgb, r, g, b);
@@ -73,7 +69,7 @@ static void draw_point(float x, float y, float r, float g, float b, float size)
 	glDrawArrays(GL_POINTS, 0, 1);
 
 	glDisableVertexAttribArray(draw_prog_.a_pos);
-	glEnable(GL_CULL_FACE);
+//	glEnable(GL_CULL_FACE);
 }
 
 static void draw_line(float x0, float y0, float x1, float y1, float r, float g,
@@ -81,7 +77,7 @@ static void draw_line(float x0, float y0, float x1, float y1, float r, float g,
 {
 	float pos[4] = { x0, y0, x1, y1, };
 
-	glDisable(GL_CULL_FACE);
+//	glDisable(GL_CULL_FACE);
 	glUseProgram(draw_prog_.id);
 
 	glUniform3f(draw_prog_.u_rgb, r, g, b);
@@ -91,7 +87,7 @@ static void draw_line(float x0, float y0, float x1, float y1, float r, float g,
 	glDrawArrays(GL_LINES, 0, 2);
 
 	glDisableVertexAttribArray(draw_prog_.a_pos);
-	glEnable(GL_CULL_FACE);
+//	glEnable(GL_CULL_FACE);
 }
 #else
 #define draw_init() ;
