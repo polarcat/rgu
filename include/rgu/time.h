@@ -58,43 +58,63 @@
 	ii("%ld.%06ld \033[%sm%.06lf\033[0m \033[1;33m" #p "\033[0m " fmt " | %s:%d\n",\
              cur_##p.tv_sec, cur_##p.tv_usec, color_##p, time_diff_##p, ##arg, __func__, __LINE__)
 
-static inline uint32_t time_ms(void)
+static inline time_t time_ms(void)
 {
 	struct timespec now;
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
-
 	return now.tv_sec * 1000 + now.tv_nsec * .000001;
 }
 
-#define print_fps(tag) {\
-	static uint8_t frames_##tag;\
-	static uint32_t prev_ms_##tag;\
-	uint32_t now_ms = time_ms();\
-	if (frames_##tag == 60) {\
-		float secs = (now_ms - prev_ms_##tag) / 1000.;\
-		ii(#tag\
-		  " \033[0;33m%.2f fps (%u frames in %.2f seconds)\033[0m\n",\
-		  frames_##tag / secs, frames_##tag, secs);\
-		frames_##tag = 0;\
-		prev_ms_##tag = now_ms;\
-	}\
-	frames_##tag++;\
+struct timeinfo {
+	uint32_t hh;
+	uint8_t mm;
+	uint8_t ss;
+};
+
+static inline void time_info(time_t ss, struct timeinfo *ti)
+{
+	ti->hh = ss / 60 / 60;
+	ti->mm = (ss % 3600) / 60;
+	ti->ss = (ss % 60);
 }
 
-#define count_fps(tag, ret) {\
-	static float prev_fps_##tag;\
-	static uint8_t frames_##tag;\
-	static uint32_t prev_ms_##tag;\
-	uint32_t now_ms = time_ms();\
-	if (frames_##tag == 60) {\
-		float secs = (now_ms - prev_ms_##tag) / 1000.;\
-		prev_fps_##tag = frames_##tag / secs;\
-		frames_##tag = 0;\
-		prev_ms_##tag = now_ms;\
-	}\
-	ret = prev_fps_##tag;\
-	frames_##tag++;\
+struct fps_info {
+	float fps;
+	uint8_t frames;
+	long prev_ms;
+};
+
+static inline void print_fps(struct fps_info *info)
+{
+	time_t now_ms = time_ms();
+
+	if (info->frames == 60) {
+		float secs = (now_ms - info->prev_ms) / 1000.;
+		info->fps = info->frames / secs;
+
+		ii("\033[0;33m%.2f fps (%u frames in %.2f seconds)\033[0m\n",
+		  info->fps, info->frames, secs);
+
+		info->prev_ms = now_ms;
+		info->frames = 0;
+	}
+
+	info->frames++;
+}
+
+static inline void count_fps(struct fps_info *info)
+{
+	time_t now_ms = time_ms();
+
+	if (info->frames == 60) {
+		float secs = (now_ms - info->prev_ms) / 1000.;
+		info->fps = info->frames / secs;
+		info->frames = 0;
+		info->prev_ms = now_ms;
+	}
+
+	info->frames++;
 }
 
 #define sleep_ms(ms) {\
