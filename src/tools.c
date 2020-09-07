@@ -25,16 +25,17 @@ void clean_round_rect(struct round_rect *rect)
 #define convert_x(x) ((1 + (x)) * .5)
 #define convert_y(y) ((1 - (y)) * .5)
 
-uint8_t make_round_rect(uint8_t rn, float r, struct round_rect *rect)
+uint8_t make_round_rect(float sx, float sy, float r, struct round_rect *rect)
 {
-	if (!rn || r == 0) {
-		ww("decline making round rectangle with zero roundness\n");
-		return 0;
+	if (r > 1) {
+		ww("radius should be in range (0,1); set to 1\n");
+		r = 1;
 	}
 
+	const uint8_t rn = 3;
 	uint8_t step = 90 / rn;
-	float cx = 1 - r;
-	float cy = 1 - r;
+	float cx = sx - r;
+	float cy = sy - r;
 	uint16_t i;
 	uint16_t size;
 
@@ -51,11 +52,13 @@ uint8_t make_round_rect(uint8_t rn, float r, struct round_rect *rect)
 
 	if (!(rect->uvs = (union gm_point2 *) malloc(size))) {
 		ee("failed to allocate uvs %u bytes\n", size);
+		clean_round_rect(rect);
 		return 0;
 	}
 
 	if (!(rect->indices = (uint8_t *) malloc(rect->verts_num))) {
 		ee("failed to allocate indices %u bytes\n", rect->verts_num);
+		clean_round_rect(rect);
 		return 0;
 	}
 
@@ -221,36 +224,45 @@ uint8_t make_round_icon(uint8_t rn, float r, struct round_rect *rect)
 	return 1;
 }
 
-uint8_t make_round_label(uint8_t rn, float r, float hc, struct round_rect *rect)
+uint8_t make_callout(const struct callout_info *info, struct round_rect *rect)
 {
-	if (!rn || r == 0) {
-		ww("decline making round rectangle with zero roundness\n");
-		return 0;
+	float r = info->roundness;
+	if (r > 1) {
+		ww("radius should be in range (0,1); set to 1\n");
+		r = 1;
 	}
 
-	uint8_t pins;
+	float pin_left = info->pin_left;
+	if (pin_left < -1 || pin_left > 1)
+		pin_left = -.1;
 
-	/* if condition below is true we will make label with pin */
+	float pin_right = info->pin_right;
+	if (pin_right < -1 || pin_right > 1)
+		pin_right = .1;
 
-	if (hc > 1) {
-		r = .15;
-		pins = 3;
-	} else {
-		hc = 1;
-		pins = 0;
-	}
+	float pin_center = info->pin_center;
+	if (pin_center < -1 || pin_center > 1)
+		pin_center = (pin_left + pin_right) * .5;
 
+	float pin_height = info->pin_height;
+	if (pin_height < -1 || pin_height > 1)
+		pin_height = .2;
+
+	const uint8_t rn = 3;
+	const uint8_t pins = 3;
 	uint8_t step = 90 / rn;
-	float cx = 1 - r;
-	float cy = 1 - r * hc;
+	float cx = info->w - r;
+	float cy = info->h - r;
 	uint16_t i;
 	uint16_t size;
 
 	rect->verts_num = 4 * (rn + 1) + 1 + 1 + pins; /* +1 for center +1 for closure */
 	size = sizeof(*rect->verts) * rect->verts_num;
 
+#ifdef SHOW_STAT
 	ii("need %u vertices %u bytes (%zu) | cxy { %.4f %.4f }\n",
 	  rect->verts_num, size, sizeof(*rect->verts), cx, cy);
+#endif
 
 	if (!(rect->verts = (union gm_point2 *) malloc(size))) {
 		ee("failed to allocate vertices %u bytes\n", size);
@@ -300,31 +312,32 @@ uint8_t make_round_label(uint8_t rn, float r, float hc, struct round_rect *rect)
 		rect->uvs[i].y = convert_y(rect->verts[i].y);
 		rect->indices[i] = i;
 
-		if (hc > 1) {
-			float y = rect->verts[i].y;
+		float y = rect->verts[i].y;
 
-			if (rect->verts[i].x == -cx && rect->verts[i].y < 0) {
-				i++;
-				rect->verts[i].x = -.1;
+		if (rect->verts[i].x == -cx && rect->verts[i].y < 0) {
+			i++;
+			rect->verts[i].x = pin_left;
+			rect->verts[i].y = y;
+			rect->uvs[i].x = convert_x(rect->verts[i].x);
+			rect->uvs[i].y = convert_y(rect->verts[i].y);
+			rect->indices[i] = i;
+
+			i++;
+			rect->verts[i].x = pin_center;
+			if (pin_height == 0)
 				rect->verts[i].y = y;
-				rect->uvs[i].x = convert_x(rect->verts[i].x);
-				rect->uvs[i].y = convert_y(rect->verts[i].y);
-				rect->indices[i] = i;
+			else
+				rect->verts[i].y = -cy - pin_height;
+			rect->uvs[i].x = convert_x(rect->verts[i].x);
+			rect->uvs[i].y = convert_y(rect->verts[i].y);
+			rect->indices[i] = i;
 
-				i++;
-				rect->verts[i].x = 0;
-				rect->verts[i].y = y; // -cy - .2;
-				rect->uvs[i].x = convert_x(rect->verts[i].x);
-				rect->uvs[i].y = y; // convert_y(rect->verts[i].y);
-				rect->indices[i] = i;
-
-				i++;
-				rect->verts[i].x = .1;
-				rect->verts[i].y = y;
-				rect->uvs[i].x = convert_x(rect->verts[i].x);
-				rect->uvs[i].y = convert_y(rect->verts[i].y);
-				rect->indices[i] = i;
-			}
+			i++;
+			rect->verts[i].x = pin_right;
+			rect->verts[i].y = y;
+			rect->uvs[i].x = convert_x(rect->verts[i].x);
+			rect->uvs[i].y = convert_y(rect->verts[i].y);
+			rect->indices[i] = i;
 		}
 
 		i++;

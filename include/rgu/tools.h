@@ -22,28 +22,29 @@ union geometry {
 	};
 };
 
-struct round_rect_req {
-    uint8_t roundness;
-    float corner_radius;
-    float radius_x;
-    float radius_y;
-    float origin_x;
-    float origin_y;
+struct callout_info {
+	float roundness;
+	float w;
+	float h;
+	float pin_height;
+	float pin_left;
+	float pin_center;
+	float pin_right;
 };
 
 struct round_rect {
-    uint8_t verts_num;
-    union gm_point2 *verts;
-    union gm_point2 *uvs;
-    uint8_t *indices;
+	uint8_t verts_num;
+	union gm_point2 *verts;
+	union gm_point2 *uvs;
+	uint8_t *indices;
 };
 
 struct shape {
-    uint8_t verts_num;
-    union gm_point2 *verts;
-    union gm_point2 *uvs;
-    uint8_t *indices;
-    uint8_t indices_num;
+	uint8_t verts_num;
+	union gm_point2 *verts;
+	union gm_point2 *uvs;
+	uint8_t *indices;
+	uint8_t indices_num;
 };
 
 /*
@@ -56,9 +57,9 @@ struct shape {
  *
  * */
 
-uint8_t make_round_rect(uint8_t rn, float r, struct round_rect *);
+uint8_t make_round_rect(float sx, float sy, float r, struct round_rect *);
 uint8_t make_round_icon(uint8_t rn, float r, struct round_rect *);
-uint8_t make_round_label(uint8_t rn, float r, float hc, struct round_rect *);
+uint8_t make_callout(const struct callout_info *, struct round_rect *);
 void clean_round_rect(struct round_rect *);
 
 uint8_t make_circle(struct shape *, uint8_t step);
