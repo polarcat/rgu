@@ -81,6 +81,7 @@ static inline void time_info(time_t ss, struct timeinfo *ti)
 
 struct fps_info {
 	float fps;
+	uint8_t frames_max;
 	uint8_t frames;
 	long prev_ms;
 };
@@ -89,7 +90,7 @@ static inline void print_fps(struct fps_info *info)
 {
 	time_t now_ms = time_ms();
 
-	if (info->frames == 60) {
+	if (info->frames == info->frames_max) {
 		float secs = (now_ms - info->prev_ms) / 1000.;
 		info->fps = info->frames / secs;
 
@@ -107,7 +108,7 @@ static inline void count_fps(struct fps_info *info)
 {
 	time_t now_ms = time_ms();
 
-	if (info->frames == 60) {
+	if (info->frames == info->frames_max) {
 		float secs = (now_ms - info->prev_ms) / 1000.;
 		info->fps = info->frames / secs;
 		info->frames = 0;
