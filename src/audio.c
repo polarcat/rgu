@@ -5,46 +5,86 @@
  * All rights reserved.
  */
 
+#ifdef ANDROID
+
+#include <stdlib.h>
 #include <android/asset_manager_jni.h>
+#include <SLES/OpenSLES.h>
+#include <SLES/OpenSLES_Android.h>
 
 #define TAG "audio"
 
 #include <rgu/log.h>
 #include <rgu/audio.h>
 
-static SLObjectItf engine_obj_ = NULL;
-static SLEngineItf engine_;
-static SLObjectItf output_obj_ = NULL;
-static SLObjectItf track_obj_ = NULL;
+struct player {
+	SLObjectItf obj;
+	SLPlayItf play;
+	SLSeekItf seek;
+};
+
+struct engine {
+	SLObjectItf obj;
+	SLEngineItf iface;
+	SLObjectItf output;
+};
 
 static inline uint8_t get_state(struct track *track)
 {
 	SLuint32 state;
-	(*track->play)->GetPlayState(track->play, &state);
+	(*track->player->play)->GetPlayState(track->player->play, &state);
 
 	return state;
 }
 
 float audio_progress(struct track *track)
 {
-	if (!track->play)
+	if (!track->player || !track->player->play)
 		return -1;
 	else if (get_state(track) != SL_PLAYSTATE_PLAYING)
 		return -1;
 
+	struct player *player = track->player;
 	SLmillisecond pos;
-	(*track->play)->GetPosition(track->play, &pos);
+	(*player->play)->GetPosition(player->play, &pos);
 
 	SLmillisecond dur;
-	(*track->play)->GetDuration(track->play, &dur);
+	(*player->play)->GetDuration(player->play, &dur);
 	if (dur == UINT32_MAX)
 		return 0;
 
 	return (float) pos / dur;
 }
 
+void audio_unload(struct track *track)
+{
+	if (!track->player)
+		return;
+
+	if (track->player->obj)
+		(*track->player->obj)->Destroy(track->player->obj);
+
+	track->player->play = NULL;
+	track->player->seek = NULL;
+	track->engine = NULL;
+	free(track->player);
+	track->player = NULL;
+	track->loaded = 0;
+}
+
 void audio_load(void *amgr, struct track *track)
 {
+	if (!track->engine) {
+		ee("track '%s' is not associated with audio engine\n",
+		  track->name);
+		return;
+	}
+
+	if (!(track->player = calloc(1, sizeof(*track->player)))) {
+		ee("failed to allocate %zu bytes\n", sizeof(*track->player));
+		return;
+	}
+
 	AAsset *asset = AAssetManager_open(amgr, track->name,
 	  AASSET_MODE_UNKNOWN);
 
@@ -72,7 +112,7 @@ void audio_load(void *amgr, struct track *track)
 	};
 	SLDataSource src = { &slfd, &format_mime };
 	SLDataLocator_OutputMix output = {
-		SL_DATALOCATOR_OUTPUTMIX, output_obj_
+		SL_DATALOCATOR_OUTPUTMIX, track->engine->output
 	};
 	SLDataSink sink = { &output, NULL };
 	const SLInterfaceID ids[3] = {
@@ -82,46 +122,53 @@ void audio_load(void *amgr, struct track *track)
 		SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE
 	};
 
-	SLresult res = (*engine_)->CreateAudioPlayer(engine_, &track_obj_,
-	  &src, &sink, 3, ids, req);
-	if (SL_RESULT_SUCCESS != res) {
+	struct engine *engine = track->engine;
+	struct player *player = track->player;
+
+	SLresult res = (*engine->iface)->CreateAudioPlayer(engine->iface,
+	  &player->obj, &src, &sink, 3, ids, req);
+	if (!*player->obj || SL_RESULT_SUCCESS != res) {
 		ee("failed to create audio track object for '%s'\n",
 		  track->name);
 		return;
 	}
 
-	res = (*track_obj_)->Realize(track_obj_, SL_BOOLEAN_FALSE);
+	res = (*player->obj)->Realize(player->obj, SL_BOOLEAN_FALSE);
 	if (SL_RESULT_SUCCESS != res) {
 		ee("failed to init audio track object for '%s'\n",
 		  track->name);
 		return;
 	}
 
-	res = (*track_obj_)->GetInterface(track_obj_, SL_IID_PLAY,
-	  &track->play);
+	res = (*player->obj)->GetInterface(player->obj, SL_IID_PLAY,
+	  &player->play);
 	if (SL_RESULT_SUCCESS != res) {
 		ee("failed to get play interface for '%s'\n", track->name);
 		return;
 	}
 
-	res = (*track_obj_)->GetInterface(track_obj_, SL_IID_SEEK,
-	  &track->seek);
+	res = (*player->obj)->GetInterface(player->obj, SL_IID_SEEK,
+	  &player->seek);
 	if (SL_RESULT_SUCCESS != res) {
 		ee("failed to get seek interface for '%s'\n", track->name);
 		return;
 	}
+
+	track->loaded = 1;
 }
 
 void audio_loop(struct track *track, uint8_t loop)
 {
-	if (!track->seek) {
+	if (!track->player || !track->player->seek) {
 		ee("failed to set loop for sound '%s' (no seek)\n",
 		  track->name);
 		return;
 	}
 
-	SLresult res = (*track->seek)->SetLoop(track->seek,
+	struct player *player = track->player;
+	SLresult res = (*player->seek)->SetLoop(player->seek,
 	  loop ? SL_BOOLEAN_TRUE : SL_BOOLEAN_FALSE, 0, SL_TIME_UNKNOWN);
+
 	if (SL_RESULT_SUCCESS != res) {
 		ee("failed to set loop for sound '%s'\n", track->name);
 		return;
@@ -130,82 +177,102 @@ void audio_loop(struct track *track, uint8_t loop)
 
 void audio_pause(struct track *track)
 {
-	if (!track->play)
+	if (!track->player || !track->player->play)
 		return;
 	else if (get_state(track) == SL_PLAYSTATE_PAUSED)
 		return;
 
-	(*track->play)->SetPlayState(track->play, SL_PLAYSTATE_PAUSED);
+	struct player *player = track->player;
+	(*player->play)->SetPlayState(player->play, SL_PLAYSTATE_PAUSED);
 }
 
 void audio_play(struct track *track)
 {
-	if (!track->play)
+	if (!track->player || !track->player->play)
 		return;
 	else if (get_state(track) == SL_PLAYSTATE_PLAYING)
 		return;
 
-	(*track->play)->SetPlayState(track->play, SL_PLAYSTATE_PLAYING);
+	struct player *player = track->player;
+	(*player->play)->SetPlayState(player->play, SL_PLAYSTATE_PLAYING);
 }
 
 void audio_stop(struct track *track)
 {
-	if (!track->play)
+	if (!track->player || !track->player->play)
 		return;
 	else if (get_state(track) == SL_PLAYSTATE_STOPPED)
 		return;
 
-	(*track->play)->SetPlayState(track->play, SL_PLAYSTATE_STOPPED);
+	struct player *player = track->player;
+	(*player->play)->SetPlayState(player->play, SL_PLAYSTATE_STOPPED);
 }
 
-void audio_close(void)
+void audio_close(struct engine **engine)
 {
-	if (track_obj_)
-		(*track_obj_)->Destroy(track_obj_);
+	if (!*engine)
+		return;
 
-	if (output_obj_)
-		(*output_obj_)->Destroy(output_obj_);
+	if ((*engine)->output)
+		(*(*engine)->output)->Destroy((*engine)->output);
 
-	if (engine_obj_)
-		(*engine_obj_)->Destroy(engine_obj_);
+	if ((*engine)->obj)
+		(*(*engine)->obj)->Destroy((*engine)->obj);
+
+	free(*engine);
+	*engine = NULL;
 }
 
-void audio_open(void)
+struct engine *audio_open(void)
 {
-	SLresult res = slCreateEngine(&engine_obj_, 0, NULL, 0, NULL, NULL);
+	struct engine *engine = calloc(1, sizeof(*engine));
+
+	if (!engine) {
+		ee("failed to allocate %zu bytes\n", sizeof(*engine));
+		return NULL;
+	}
+
+	SLresult res = slCreateEngine(&engine->obj, 0, NULL, 0, NULL, NULL);
 	if (SL_RESULT_SUCCESS != res) {
 		ee("failed to create audio engine object\n");
-		return;
+		goto err;
 	}
 
-	res = (*engine_obj_)->Realize(engine_obj_, SL_BOOLEAN_FALSE);
+	res = (*engine->obj)->Realize(engine->obj, SL_BOOLEAN_FALSE);
 	if (SL_RESULT_SUCCESS != res) {
 		ee("failed to init audio engine object\n");
-		return;
+		goto err;
 	}
 
-	res = (*engine_obj_)->GetInterface(engine_obj_, SL_IID_ENGINE,
-	  &engine_);
+	res = (*engine->obj)->GetInterface(engine->obj, SL_IID_ENGINE,
+	  &engine->iface);
 	if (SL_RESULT_SUCCESS != res) {
 		ee("failed to get audio engine interface\n");
-		return;
+		goto err;
 	}
 
 	/* disable REVERB feature */
 	const SLInterfaceID ids[1] = {SL_IID_ENVIRONMENTALREVERB};
 	const SLboolean req[1] = {SL_BOOLEAN_FALSE};
 
-	res = (*engine_)->CreateOutputMix(engine_, &output_obj_, 1, ids, req);
+	res = (*engine->iface)->CreateOutputMix(engine->iface, &engine->output,
+	  1, ids, req);
 	if (SL_RESULT_SUCCESS != res) {
 		ee("failed to create output mixer\n");
-		return;
+		goto err;
 	}
 
-	res = (*output_obj_)->Realize(output_obj_, SL_BOOLEAN_FALSE);
+	res = (*engine->output)->Realize(engine->output, SL_BOOLEAN_FALSE);
 	if (SL_RESULT_SUCCESS != res) {
 		ee("failed to init output mixer\n");
-		return;
+		goto err;
 	}
 
 	ii("audio interface is ready\n");
+	return engine;
+err:
+	audio_close(&engine);
+	return NULL;
 }
+
+#endif /* ANDROID */
