@@ -37,6 +37,7 @@ struct round_rect {
 	union gm_point2 *verts;
 	union gm_point2 *uvs;
 	uint8_t *indices;
+	uint8_t alloc:1;
 };
 
 struct shape {
@@ -45,6 +46,7 @@ struct shape {
 	union gm_point2 *uvs;
 	uint8_t *indices;
 	uint8_t indices_num;
+	uint8_t alloc:1;
 };
 
 /*

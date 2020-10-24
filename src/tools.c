@@ -12,14 +12,17 @@
 
 void clean_round_rect(struct round_rect *rect)
 {
-	free(rect->verts);
+	if (rect->alloc) {
+		free(rect->verts);
+		free(rect->uvs);
+		free(rect->indices);
+	}
+
+	rect->verts_num = 0;
 	rect->verts = NULL;
-
-	free(rect->uvs);
 	rect->uvs = NULL;
-
-	free(rect->indices);
 	rect->indices = NULL;
+	rect->alloc = 0;
 }
 
 #define convert_x(x) ((1 + (x)) * .5)
@@ -39,6 +42,7 @@ uint8_t make_round_rect(float sx, float sy, float r, struct round_rect *rect)
 	uint16_t i;
 	uint16_t size;
 
+	rect->alloc = 1;
 	rect->verts_num = 4 * (rn + 1) + 1 + 1; /* +1 for center +1 for closure */
 	size = sizeof(*rect->verts) * rect->verts_num;
 
@@ -150,6 +154,7 @@ uint8_t make_round_icon(uint8_t rn, float r, struct round_rect *rect)
 	uint16_t i;
 	uint16_t size;
 
+	rect->alloc = 1;
 	rect->verts_num = 4 * (rn + 1) + 1 + 1; /* +1 for center +1 for closure */
 	size = sizeof(*rect->verts) * rect->verts_num;
 
@@ -256,6 +261,7 @@ uint8_t make_callout(const struct callout_info *info, struct round_rect *rect)
 	uint16_t i;
 	uint16_t size;
 
+	rect->alloc = 1;
 	rect->verts_num = 4 * (rn + 1) + 1 + 1 + pins; /* +1 for center +1 for closure */
 	size = sizeof(*rect->verts) * rect->verts_num;
 
@@ -378,6 +384,7 @@ uint8_t make_circle(struct shape *circle, uint8_t step)
 	uint16_t steps = 360 / step;
 	uint16_t size;
 
+	circle->alloc = 1;
 	circle->verts_num = 360 / step + 1;
 	size = sizeof(*circle->verts) * circle->verts_num;
 
