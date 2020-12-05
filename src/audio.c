@@ -7,6 +7,7 @@
 
 #ifdef ANDROID
 
+#include <unistd.h>
 #include <stdlib.h>
 #include <android/asset_manager_jni.h>
 #include <SLES/OpenSLES.h>
@@ -14,13 +15,17 @@
 
 #define TAG "audio"
 
+#include <rgu/utils.h>
 #include <rgu/log.h>
+#include <rgu/time.h>
 #include <rgu/audio.h>
 
 struct player {
 	SLObjectItf obj;
 	SLPlayItf play;
 	SLSeekItf seek;
+	SLVolumeItf volume;
+	int fd;
 };
 
 struct engine {
@@ -29,19 +34,43 @@ struct engine {
 	SLObjectItf output;
 };
 
-static inline uint8_t get_state(struct track *track)
+static inline uint8_t get_state(struct player *player)
 {
 	SLuint32 state;
-	(*track->player->play)->GetPlayState(track->player->play, &state);
+	(*player->play)->GetPlayState(player->play, &state);
 
 	return state;
 }
+
+#ifdef RELEASE
+#define print_state(player) ;
+#else
+static void print_state(struct player *player)
+{
+	SLresult res = get_state(player);
+	if (res == SL_PLAYSTATE_PLAYING) {
+		ii("SL_PLAYSTATE_PLAYING\n");
+	} else if (res == SL_PLAYSTATE_STOPPED) {
+		ii("SL_PLAYSTATE_STOPPED\n");
+	} else if (res == SL_PLAYSTATE_PAUSED) {
+		ii("SL_PLAYSTATE_PAUSED\n");
+	} else if (res == SL_RESULT_BUFFER_INSUFFICIENT) {
+		ii("SL_RESULT_BUFFER_INSUFFICIENT\n");
+	} else if (res == SL_OBJECT_STATE_SUSPENDED) {
+		ii("SL_OBJECT_STATE_SUSPENDED\n");
+	} else if (res == SL_RESULT_RESOURCE_ERROR) {
+		ii("SL_RESULT_RESOURCE_ERROR\n");
+	} else {
+		ii("UNKNOWN\n");
+	}
+}
+#endif
 
 float audio_progress(struct track *track)
 {
 	if (!track->player || !track->player->play)
 		return -1;
-	else if (get_state(track) != SL_PLAYSTATE_PLAYING)
+	else if (get_state(track->player) != SL_PLAYSTATE_PLAYING)
 		return -1;
 
 	struct player *player = track->player;
@@ -58,18 +87,19 @@ float audio_progress(struct track *track)
 
 void audio_unload(struct track *track)
 {
+	track->loaded = 0;
+
 	if (!track->player)
 		return;
-
-	if (track->player->obj)
+	else if (track->player->obj)
 		(*track->player->obj)->Destroy(track->player->obj);
 
 	track->player->play = NULL;
 	track->player->seek = NULL;
 	track->engine = NULL;
+	close(track->player->fd);
 	free(track->player);
 	track->player = NULL;
-	track->loaded = 0;
 }
 
 void audio_load(void *amgr, struct track *track)
@@ -94,9 +124,9 @@ void audio_load(void *amgr, struct track *track)
 	}
 
 	off_t start, len;
-	int fd = AAsset_openFileDescriptor(asset, &start, &len);
+	track->player->fd = AAsset_openFileDescriptor(asset, &start, &len);
 
-	if (fd <= 0) {
+	if (track->player->fd <= 0) {
 		ee("failed to open asset file '%s'\n", track->name);
 		AAsset_close(asset);
 		return;
@@ -105,7 +135,7 @@ void audio_load(void *amgr, struct track *track)
 	AAsset_close(asset);
 
 	SLDataLocator_AndroidFD slfd = {
-		SL_DATALOCATOR_ANDROIDFD, fd, start, len
+		SL_DATALOCATOR_ANDROIDFD, track->player->fd, start, len
 	};
 	SLDataFormat_MIME format_mime = {
 		SL_DATAFORMAT_MIME, NULL, SL_CONTAINERTYPE_UNSPECIFIED
@@ -115,18 +145,18 @@ void audio_load(void *amgr, struct track *track)
 		SL_DATALOCATOR_OUTPUTMIX, track->engine->output
 	};
 	SLDataSink sink = { &output, NULL };
-	const SLInterfaceID ids[3] = {
-		SL_IID_SEEK, SL_IID_MUTESOLO, SL_IID_VOLUME
+	const SLInterfaceID ids[] = {
+		SL_IID_SEEK, SL_IID_VOLUME
 	};
-	const SLboolean req[3] = {
-		SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE
+	const SLboolean req[ARRAY_SIZE(ids)] = {
+		SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE
 	};
 
 	struct engine *engine = track->engine;
 	struct player *player = track->player;
 
 	SLresult res = (*engine->iface)->CreateAudioPlayer(engine->iface,
-	  &player->obj, &src, &sink, 3, ids, req);
+	  &player->obj, &src, &sink, ARRAY_SIZE(ids), ids, req);
 	if (!*player->obj || SL_RESULT_SUCCESS != res) {
 		ee("failed to create audio track object for '%s'\n",
 		  track->name);
@@ -151,6 +181,13 @@ void audio_load(void *amgr, struct track *track)
 	  &player->seek);
 	if (SL_RESULT_SUCCESS != res) {
 		ee("failed to get seek interface for '%s'\n", track->name);
+		return;
+	}
+
+	res = (*player->obj)->GetInterface(player->obj, SL_IID_VOLUME,
+	  &player->volume);
+	if (SL_RESULT_SUCCESS != res) {
+		ee("failed to get volume interface for '%s'\n", track->name);
 		return;
 	}
 
@@ -179,7 +216,7 @@ void audio_pause(struct track *track)
 {
 	if (!track->player || !track->player->play)
 		return;
-	else if (get_state(track) == SL_PLAYSTATE_PAUSED)
+	else if (get_state(track->player) == SL_PLAYSTATE_PAUSED)
 		return;
 
 	struct player *player = track->player;
@@ -190,8 +227,6 @@ void audio_play(struct track *track)
 {
 	if (!track->player || !track->player->play)
 		return;
-	else if (get_state(track) == SL_PLAYSTATE_PLAYING)
-		return;
 
 	struct player *player = track->player;
 	(*player->play)->SetPlayState(player->play, SL_PLAYSTATE_PLAYING);
@@ -201,7 +236,7 @@ void audio_stop(struct track *track)
 {
 	if (!track->player || !track->player->play)
 		return;
-	else if (get_state(track) == SL_PLAYSTATE_STOPPED)
+	else if (get_state(track->player) == SL_PLAYSTATE_STOPPED)
 		return;
 
 	struct player *player = track->player;

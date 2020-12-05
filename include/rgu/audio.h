@@ -14,8 +14,8 @@ struct engine;
 
 struct track {
 	const char *name;
-	uint8_t play:1;
 	uint8_t loaded:1;
+	const uint8_t keep:1;
 	struct player *player;
 	struct engine *engine; /* engine binding */
 };
