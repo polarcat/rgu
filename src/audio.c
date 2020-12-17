@@ -20,6 +20,9 @@
 #include <rgu/time.h>
 #include <rgu/audio.h>
 
+#define AUDIO_VOLUME_MIN (SL_MILLIBEL_MIN / 2)
+#define AUDIO_VOLUME_STEP 50
+
 struct player {
 	SLObjectItf obj;
 	SLPlayItf play;
@@ -94,6 +97,7 @@ void audio_unload(struct track *track)
 	else if (track->player->obj)
 		(*track->player->obj)->Destroy(track->player->obj);
 
+	track->player->volume = NULL;
 	track->player->play = NULL;
 	track->player->seek = NULL;
 	track->engine = NULL;
@@ -191,6 +195,10 @@ void audio_load(void *amgr, struct track *track)
 		return;
 	}
 
+	(*player->volume)->GetMaxVolumeLevel(player->volume,
+	  &track->volume.max);
+	(*player->volume)->SetVolumeLevel(player->volume, track->volume.max);
+	track->volume.val = track->volume.max;
 	track->loaded = 1;
 }
 
@@ -230,6 +238,12 @@ void audio_play(struct track *track)
 
 	struct player *player = track->player;
 	(*player->play)->SetPlayState(player->play, SL_PLAYSTATE_PLAYING);
+
+	if (!player->volume)
+		return;
+
+	(*player->volume)->SetVolumeLevel(player->volume, track->volume.max);
+	track->volume.val = track->volume.max;
 }
 
 void audio_stop(struct track *track)
@@ -241,6 +255,26 @@ void audio_stop(struct track *track)
 
 	struct player *player = track->player;
 	(*player->play)->SetPlayState(player->play, SL_PLAYSTATE_STOPPED);
+}
+
+uint8_t audio_fade(struct track *track)
+{
+	if (track->volume.val <= AUDIO_VOLUME_MIN)
+		return 0;
+
+	struct player *player = track->player;
+
+	if (!player || !player->volume)
+		return 0;
+	else if (player->play && get_state(player) == SL_PLAYSTATE_STOPPED)
+		return 0;
+
+	if (track->volume.val > AUDIO_VOLUME_MIN)
+		track->volume.val -= AUDIO_VOLUME_STEP;
+
+	(*player->volume)->SetVolumeLevel(player->volume, track->volume.val);
+	sleep_ms(10);
+	return 1;
 }
 
 void audio_close(struct engine **engine)

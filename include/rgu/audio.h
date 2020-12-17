@@ -12,10 +12,16 @@
 struct player;
 struct engine;
 
+struct volume {
+	int16_t val;
+	int16_t max;
+};
+
 struct track {
 	const char *name;
 	uint8_t loaded:1;
 	const uint8_t keep:1;
+	struct volume volume;
 	struct player *player;
 	struct engine *engine; /* engine binding */
 };
@@ -27,5 +33,6 @@ void audio_unload(struct track *);
 void audio_loop(struct track *, uint8_t loop);
 void audio_play(struct track *);
 void audio_stop(struct track *);
+uint8_t audio_fade(struct track *);
 void audio_pause(struct track *);
 float audio_progress(struct track *);
