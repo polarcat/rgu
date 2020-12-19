@@ -161,7 +161,7 @@ void audio_load(void *amgr, struct track *track)
 
 	SLresult res = (*engine->iface)->CreateAudioPlayer(engine->iface,
 	  &player->obj, &src, &sink, ARRAY_SIZE(ids), ids, req);
-	if (!*player->obj || SL_RESULT_SUCCESS != res) {
+	if (!player->obj || SL_RESULT_SUCCESS != res) {
 		ee("failed to create audio track object for '%s'\n",
 		  track->name);
 		return;
