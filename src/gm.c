@@ -183,6 +183,81 @@ void gm_mat4_invert(float r[16], const float m[16])
 	}
 }
 
+void gm_rotate_x(union gm_mat4 *mat, float rad)
+{
+	float c = cosf(rad);
+        float s = sinf(rad);
+
+	mat->sy = c;
+	mat->a6 = -s;
+	mat->a9 = s;
+	mat->sz = c;
+}
+
+void gm_rotate_y(union gm_mat4 *mat, float rad)
+{
+	float c = cosf(rad);
+        float s = sinf(rad);
+
+	mat->sx = c;
+	mat->a2 = s;
+	mat->a8 = -s;
+	mat->sz = c;
+}
+
+void gm_rotate_z(union gm_mat4 *mat, float rad)
+{
+	float c = cosf(rad);
+        float s = sinf(rad);
+
+	mat->sx = c;
+	mat->a1 = s;
+	mat->a4= -s;
+	mat->sy = c;
+}
+
+/* TODO craft faster variant of it */
+void gm_mat4_transform(union gm_mat4 *mat, union gm_point3 *size,
+  union gm_point3 *pos, union gm_point3 *angle /* radians */)
+{
+	union gm_mat4 rot_x = GM_MAT4_IDENTITY;
+	union gm_mat4 rot_y = GM_MAT4_IDENTITY;
+	union gm_mat4 rot_z = GM_MAT4_IDENTITY;
+	union gm_mat4 rot = GM_MAT4_IDENTITY;
+	union gm_mat4 scale = GM_MAT4_IDENTITY;
+
+	gm_rotate_x(&rot_x, angle->x);
+	gm_rotate_y(&rot_y, angle->y);
+	gm_rotate_z(&rot_z, angle->z);
+
+	scale.sx = size->x;
+	scale.sy = size->y;
+	scale.sz = size->z;
+
+#if 0
+	/* normal variant */
+
+	union gm_mat4 trans = GM_MAT4_IDENTITY;
+
+	trans.x = pos->x;
+	trans.y = pos->y;
+	trans.z = pos->z;
+
+	gm_mat4_mulmm(rot.data, rot_y.data, rot_z.data);
+	gm_mat4_mulmm(rot.data, rot.data, rot_x.data);
+	gm_mat4_mulmm(rot.data, rot.data, scale.data);
+	gm_mat4_mulmm(mat->data, trans.data, rot.data);
+#else
+	/* shortcut: apply tranlation as is */
+	gm_mat4_mulmm(rot.data, rot_y.data, rot_z.data);
+	gm_mat4_mulmm(rot.data, rot.data, rot_x.data);
+	gm_mat4_mulmm(mat->data, rot.data, scale.data);
+	mat->x = pos->x;
+	mat->y = pos->y;
+	mat->z = pos->z;
+#endif
+}
+
 /* vector2 ops */
 
 void gm_vec2_init(union gm_vec2 *v, const union gm_point2 *p0,

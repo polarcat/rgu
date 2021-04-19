@@ -14,6 +14,9 @@
 #include <rgu/color.h>
 #include <rgu/list.h>
 
+#define ARRAY_STRIDE_COLOR 44
+#define ARRAY_STRIDE 32
+
 struct wfobj {
 	uint16_t id;
 	uint8_t visible;
@@ -29,12 +32,14 @@ struct wfobj {
 	GLuint vbo;
 	float *array;
 	uint32_t array_size;
+	uint8_t with_color;
 
 	struct list_head head;
 };
 
 struct model {
-	struct list_head objects;
+	char *name;
+	struct list_head shapes;
 	union color_rgb rgb; /* if all planes are >= 0 then ignore mtl and use this color */
 	union gm_point3 min;
 	union gm_point3 max;
@@ -42,6 +47,6 @@ struct model {
 	void *ctx; /* privately owned context */
 };
 
-uint8_t prepare_model(const char *path, struct model *model, void *amgr);
+uint8_t prepare_model(char *path, struct model *model, void *amgr);
 void upload_model(struct model *model);
 void erase_model(struct model *model);

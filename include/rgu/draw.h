@@ -35,11 +35,11 @@ static void draw_init(void)
 		"}\0";
 
 	const char *vsrc =
-		"attribute vec2 a_pos;\n"
+		"attribute vec3 a_pos;\n"
 		"uniform float u_size;\n"
 		"void main() {\n"
 			"gl_PointSize=u_size;\n"
-			"gl_Position=vec4(a_pos,0,1);\n"
+			"gl_Position=vec4(a_pos,1);\n"
 		"}\0";
 
 	if (!(draw_prog_.id = gl_make_prog(vsrc, fsrc))) {
@@ -54,16 +54,14 @@ static void draw_init(void)
 	draw_prog_.u_rgb = glGetUniformLocation(draw_prog_.id, "u_rgb");
 }
 
-static void draw_point(float x, float y, float r, float g, float b, float size)
+static void draw_point(union gm_point3 *pos, union color_rgb *rgb, float size)
 {
-	float pos[2] = { x, y, };
-
 //	glDisable(GL_CULL_FACE);
 	glUseProgram(draw_prog_.id);
 
-	glUniform3f(draw_prog_.u_rgb, r, g, b);
+	glUniform3f(draw_prog_.u_rgb, rgb->r, rgb->g, rgb->b);
 	glUniform1f(draw_prog_.u_size, size);
-	glVertexAttribPointer(draw_prog_.a_pos, 2, GL_FLOAT, GL_FALSE, 0, pos);
+	glVertexAttribPointer(draw_prog_.a_pos, 3, GL_FLOAT, GL_FALSE, 0, pos);
 	glEnableVertexAttribArray(draw_prog_.a_pos);
 
 	glDrawArrays(GL_POINTS, 0, 1);
@@ -91,7 +89,7 @@ static void draw_line(float x0, float y0, float x1, float y1, float r, float g,
 }
 #else
 #define draw_init() ;
-#define draw_point(x, y, r, g, b, size) ;
+#define draw_point(pos, rgb, size) ;
 #define draw_line(x0, y0, x1, y1, r, g, b) ;
 #endif /* USE_DRAW */
 
@@ -100,12 +98,13 @@ static inline void draw_axis(void)
 {
 	draw_line(-1, 0, 1, 0, .8, .8, .8);
 	draw_line(0, -1, 0, 1, .8, .8, .8);
+	union color_rgb color = { .8, .8, .8 };
 
 	for (float i = .1; i < 1.;) {
-		draw_point(0, i, .8, .8, .8, 8);
-		draw_point(0, -i, .8, .8, .8, 8);
-		draw_point(i, 0, .8, .8, .8, 8);
-		draw_point(-i, 0, .8, .8, .8, 8);
+		draw_point(&(union gm_point3){0, i, 0}, &color, 8);
+		draw_point(&(union gm_point3){0, -i, 0}, &color, 8);
+		draw_point(&(union gm_point3){i, 0, 0}, &color, 8);
+		draw_point(&(union gm_point3){-i, 0, 0}, &color, 8);
 		i += .1;
 	}
 }

@@ -32,3 +32,12 @@ void rgb2hsi(uint8_t r, uint8_t g, uint8_t b, float *h, float *s, float *i);
 uint8_t rgb2hsv(uint8_t r, uint8_t g, uint8_t b, float *h, float *s, float *v);
 
 void str2rgb(const char *color, uint8_t *r, uint8_t *g, uint8_t *b);
+
+static inline void set_rgba(union color_rgba *rgba, float r, float g, float b,
+  float a)
+{
+	rgba->r = r;
+	rgba->g = g;
+	rgba->b = b;
+	rgba->a = a;
+}

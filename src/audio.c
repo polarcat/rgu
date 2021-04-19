@@ -162,7 +162,7 @@ void audio_load(void *amgr, struct track *track)
 	SLresult res = (*engine->iface)->CreateAudioPlayer(engine->iface,
 	  &player->obj, &src, &sink, ARRAY_SIZE(ids), ids, req);
 	if (!player->obj || SL_RESULT_SUCCESS != res) {
-		ee("failed to create audio track object for '%s'\n",
+		ww("failed to create audio track object for '%s'\n",
 		  track->name);
 		return;
 	}
@@ -202,6 +202,24 @@ void audio_load(void *amgr, struct track *track)
 	track->loaded = 1;
 }
 
+void audio_reset(struct track *track)
+{
+	if (!track->player || !track->player->seek) {
+		ee("failed to set loop for sound '%s' (no seek)\n",
+		  track->name);
+		return;
+	}
+
+	struct player *player = track->player;
+	SLresult res = (*player->seek)->SetPosition(player->seek, 0,
+	  SL_SEEKMODE_FAST);
+
+	if (SL_RESULT_SUCCESS != res) {
+		ee("failed to reset sound '%s'\n", track->name);
+		return;
+	}
+}
+
 void audio_loop(struct track *track, uint8_t loop)
 {
 	if (!track->player || !track->player->seek) {
@@ -233,6 +251,9 @@ void audio_pause(struct track *track)
 
 void audio_play(struct track *track)
 {
+#ifdef NO_SOUND
+	return;
+#endif
 	if (!track->player || !track->player->play)
 		return;
 

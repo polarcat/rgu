@@ -30,22 +30,27 @@ struct callout_info {
 	float pin_left;
 	float pin_center;
 	float pin_right;
+	uint8_t pin_symmetric:1;
+	float skew;
 };
 
+#define ELEMENTS_TYPE GL_UNSIGNED_BYTE
+typedef uint8_t element_t;
+
 struct round_rect {
-	uint8_t verts_num;
+	element_t verts_num;
 	union gm_point2 *verts;
 	union gm_point2 *uvs;
-	uint8_t *indices;
+	element_t *indices;
 	uint8_t alloc:1;
 };
 
 struct shape {
-	uint8_t verts_num;
+	element_t verts_num;
 	union gm_point2 *verts;
 	union gm_point2 *uvs;
-	uint8_t *indices;
-	uint8_t indices_num;
+	element_t *indices;
+	element_t indices_num;
 	uint8_t alloc:1;
 };
 
@@ -65,3 +70,4 @@ uint8_t make_callout(const struct callout_info *, struct round_rect *);
 void clean_round_rect(struct round_rect *);
 
 uint8_t make_circle(struct shape *, uint8_t step);
+uint8_t make_rrect(float rx, float ry, uint8_t steps, struct round_rect *);

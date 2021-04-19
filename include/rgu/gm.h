@@ -10,6 +10,22 @@
 #include <stdint.h>
 #include <math.h>
 
+#define gm_print_mat4(m) { \
+	ii(#m"\n")\
+	ii("%+.06f %+.06f %+.06f %+.06f\n", m[0], m[4], m[8], m[12]); \
+	ii("%+.06f %+.06f %+.06f %+.06f\n", m[1], m[5], m[9], m[13]); \
+	ii("%+.06f %+.06f %+.06f %+.06f\n", m[2], m[6], m[10], m[14]); \
+	ii("%+.06f %+.06f %+.06f %+.06f\n", m[3], m[7], m[11], m[15]); \
+	ii("\n")\
+}
+
+#define GM_MAT4_IDENTITY {\
+	1, 0, 0, 0,\
+	0, 1, 0, 0,\
+	0, 0, 1, 0,\
+	0, 0, 0, 1,\
+}
+
 union gm_point2i {
 	int data[2];
 	struct {
@@ -73,6 +89,16 @@ union gm_vec3 {
 	};
 };
 
+union gm_vec4 {
+	float data[4];
+	struct {
+		float x;
+		float y;
+		float z;
+		float w;
+	};
+};
+
 union gm_plane3 {
 	union gm_vec3 n; /* x ==> A, y ==> B, z ==> C */
 	struct {
@@ -115,6 +141,8 @@ void gm_mat4_identity(float m[16]);
 void gm_mat4_mulmm(float r[16], const float m0[16], const float m1[16]);
 void gm_mat4_mulmv(float r[4], const float m[16], const float v[4]);
 void gm_mat4_invert(float r[16], const float m[16]);
+void gm_mat4_transform(union gm_mat4 *mat, union gm_point3 *size,
+  union gm_point3 *pos, union gm_point3 *angle /* radians */);
 
 /* vector2 ops */
 

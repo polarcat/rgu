@@ -7,7 +7,7 @@
  */
 
 #include <stdlib.h>
-#include <sys/mman.h>
+#include <libgen.h>
 
 #define TAG "wfobj"
 
@@ -20,8 +20,7 @@
 #include <rgu/gm.h>
 #include <rgu/wfobj.h>
 
-#define STR_LEN 128
-#define MAP_SIZE (2 * 1024000) /* 2 * 256000 vertices */
+#define MAX_INDEX 100000
 
 #define strip_str(str) {\
 	uint8_t pos = strlen(str) - 1;\
@@ -31,7 +30,7 @@
 
 struct context {
 	const void *amgr;
-	uint16_t objects_num;
+	uint16_t shapes_num;
 };
 
 struct texlib_item {
@@ -62,12 +61,15 @@ struct texture_cache {
 
 #define texcache_item(item) container_of(item, struct texture_info, head)
 
-struct object_info {
+struct shape_info {
 	const char *name;
 	const char *texname;
 
 	float *vertices;
 	uint32_t vertices_idx;
+
+	float *colors;
+	uint32_t colors_idx;
 
 	uint16_t *vertex_indices;
 	uint32_t vertex_indices_idx;
@@ -175,33 +177,35 @@ static GLuint load_texture(const char *path, struct texture_cache *cache)
 	return texid;
 }
 
-static inline void upload_object(struct wfobj *obj, struct texture_cache *cache)
+static inline void upload_shape(struct wfobj *shape,
+  struct texture_cache *cache)
 {
-	if (!obj->array_size || !obj->indices_num) {
-		ww("bad array or indices size: %u %u\n", obj->array_size,
-		  obj->indices_num);
+	if (!shape->array_size || !shape->indices_num) {
+		ww("bad array or indices size: %u %u\n", shape->array_size,
+		  shape->indices_num);
 		return;
 	}
 
-	glGenBuffers(1, &obj->vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, obj->vbo);
-	glBufferData(GL_ARRAY_BUFFER, obj->array_size * sizeof(float),
-	  obj->array, GL_STATIC_DRAW);
+	glGenBuffers(1, &shape->vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, shape->vbo);
+	glBufferData(GL_ARRAY_BUFFER, shape->array_size * sizeof(float),
+	  shape->array, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	glGenBuffers(1, &obj->ibo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->ibo);
+	glGenBuffers(1, &shape->ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shape->ibo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-	  obj->indices_num * sizeof(uint16_t), obj->indices, GL_STATIC_DRAW);
+	  shape->indices_num * sizeof(uint16_t), shape->indices, GL_STATIC_DRAW);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-	obj->tex = load_texture(obj->texname, cache);
+	shape->tex = load_texture(shape->texname, cache);
 
-	ii("prepared | vbo %u, %u elements | ibo %u, %u indices | tex %u\n",
-	  obj->vbo, obj->array_size, obj->ibo, obj->indices_num, obj->tex);
+	ii("shape uploaded | vbo %u, %u elements | ibo %u, %u indices | tex %u | with color %u\n",
+	  shape->vbo, shape->array_size, shape->ibo, shape->indices_num,
+	  shape->tex, shape->with_color);
 }
 
-static uint8_t prepare_object(struct model *model, struct object_info *info)
+static uint8_t prepare_shape(struct model *model, struct shape_info *info)
 {
 	if (info->normal_indices_idx &&
 	  (info->normal_indices_idx != info->vertex_indices_idx)) {
@@ -217,43 +221,56 @@ static uint8_t prepare_object(struct model *model, struct object_info *info)
 		return 0;
 	}
 
-	ii("prepare object '%s' : vi %u, ni %u, ti %u | v %.1f, n %.1f, uvs %.1f\n",
+	ii("prepare shape '%s' : vi %u, ni %u, ti %u | v %.1f, n %.1f, uvs %.1f\n",
 	  info->name, info->vertex_indices_idx, info->normal_indices_idx,
 	  info->uv_indices_idx, info->vertices_idx / 3., info->normals_idx / 3.,
 	  info->uvs_idx / 2.);
 
-	struct wfobj *obj = calloc(1, sizeof(*obj));
+	struct wfobj *shape = calloc(1, sizeof(*shape));
 
-	if (!obj) {
-		ee("failed to allocate object memory\n");
+	if (!shape) {
+		ee("failed to allocate shape memory\n");
 		return 0;
 	}
 
-	uint32_t prot = PROT_READ | PROT_WRITE;
-	uint32_t flags = MAP_ANONYMOUS | MAP_PRIVATE;
+	uint32_t size;
 
-	if (!(obj->array = mmap(NULL, MAP_SIZE, prot, flags, -1, 0))) {
-		ee("failed to map array buffer for obj '%s'\n", obj->name);
+	size = info->vertex_indices_idx * sizeof(*info->vertices) * 3;
+	size += info->normal_indices_idx * sizeof(*info->normals) * 3;
+	size += info->uv_indices_idx * sizeof(*info->uvs) * 2;
+
+	if (info->colors_idx)
+		size += info->vertex_indices_idx * sizeof(*info->colors) * 3;
+
+	if (!(shape->array = malloc(size))) {
+		ee("failed to allocate %u bytes for shape '%s'\n",
+		  size, shape->name);
 		return 0;
 	}
 
-	if (!(obj->indices = mmap(NULL, MAP_SIZE, prot, flags, -1, 0))) {
-		ee("failed to map indices buffer for obj '%s'\n", obj->name);
+	size = info->vertex_indices_idx * sizeof(*shape->indices);
+
+	if (!(shape->indices = malloc(size))) {
+		ee("failed to allocate %u bytes for shape '%s'\n",
+		  size, shape->name);
+		dealloc(shape->array);
 		return 0;
 	}
 
 	struct context *ctx = (struct context *) model->ctx;
 
-	obj->id = ctx->objects_num++;
-	obj->name = strdup(info->name);
-	obj->visible = 1;
+	shape->id = ctx->shapes_num++;
+	shape->name = strdup(info->name);
+	shape->visible = 1;
+	shape->with_color = !!info->colors_idx;
 
 	if (info->texname) {
-		obj->texname = strdup(info->texname);
+		shape->texname = strdup(info->texname);
 		info->texname = NULL;
 	}
 
-	ii("obj '%s' id %u | vertex indices %u\n", obj->name, obj->id, info->vertex_indices_idx);
+	ii("shape '%s' id %u | vertex indices %u\n", shape->name, shape->id,
+	  info->vertex_indices_idx);
 
 	for (uint32_t i = 0; i < info->vertex_indices_idx; ++i) {
 		uint16_t vertex_index = info->vertex_indices[i];
@@ -261,9 +278,9 @@ static uint8_t prepare_object(struct model *model, struct object_info *info)
 		float vy = info->vertices[vertex_index * 3 + 1];
 		float vz = info->vertices[vertex_index * 3 + 2];
 
-		obj->array[obj->array_size++] = vx;
-		obj->array[obj->array_size++] = vy;
-		obj->array[obj->array_size++] = vz;
+		shape->array[shape->array_size++] = vx;
+		shape->array[shape->array_size++] = vy;
+		shape->array[shape->array_size++] = vz;
 
 		if (model->max.x < vx)
 			model->max.x = vx;
@@ -279,7 +296,7 @@ static uint8_t prepare_object(struct model *model, struct object_info *info)
 		if (model->min.z > vz)
 			model->min.z = vz;
 
-		obj->indices[obj->indices_num++] = i;
+		shape->indices[shape->indices_num++] = i;
 
 		float nx;
 		float ny;
@@ -295,9 +312,9 @@ static uint8_t prepare_object(struct model *model, struct object_info *info)
 			nz = info->normals[normal_index * 3 + 2];
 		}
 
-		obj->array[obj->array_size++] = nx;
-		obj->array[obj->array_size++] = ny;
-		obj->array[obj->array_size++] = nz;
+		shape->array[shape->array_size++] = nx;
+		shape->array[shape->array_size++] = ny;
+		shape->array[shape->array_size++] = nz;
 
 		float tx;
 		float ty;
@@ -311,16 +328,30 @@ static uint8_t prepare_object(struct model *model, struct object_info *info)
 			ty = info->uvs[uv_index * 2 + 1];
 		}
 
-		obj->array[obj->array_size++] = tx;
-		obj->array[obj->array_size++] = ty;
+		shape->array[shape->array_size++] = tx;
+		shape->array[shape->array_size++] = ty;
+
+		if (shape->with_color) {
+			//vertex_index *= 3;;
+			float r = info->colors[vertex_index * 3];
+			float g = info->colors[vertex_index * 3 + 1];
+			float b = info->colors[vertex_index * 3 + 2];
+
+			shape->array[shape->array_size++] = r;
+			shape->array[shape->array_size++] = g;
+			shape->array[shape->array_size++] = b;
+			dd("vertex %u | color (%f %f %f)\n", vertex_index,
+			  r, g, b);
+		}
 
 		dd("[%u] %u | v { %.4f %.4f %.4f } | n { %.4f %.4f %.4f } | t { %.4f %.4f }\n",
 		  i, vertex_index, vx, vy, vz, nx, ny, nz, tx, ty);
 	}
 
-	list_add(&model->objects, &obj->head);
+	list_add(&model->shapes, &shape->head);
 
 	info->vertices_idx = 0;
+	info->colors_idx = 0;
 	info->vertex_indices_idx = 0;
 
 	info->normals_idx = 0;
@@ -468,7 +499,7 @@ static inline char *parse_indices(char *token, uint16_t *vi, uint16_t *ti,
 	return ptr;
 }
 
-static void prepare_indices(char *str, struct object_info *info)
+static void prepare_indices(char *str, struct shape_info *info)
 {
 	char *ptr = str;
 	char *end = ptr + strlen(ptr);
@@ -505,8 +536,9 @@ static void prepare_indices(char *str, struct object_info *info)
 		} else { /* vertex indices only */
 			info->vertex_indices[info->vertex_indices_idx++] = atoi(ptr);
 			ptr += strlen(ptr) + 1;
-			uint32_t i = info->vertex_indices_idx - 1;
-			dd("vertex_indices[%u] %u | next str '%s'\n", i, info->vertex_indices[i], ptr);
+			dd("vertex_indices[%u] %u | next str '%s'\n",
+			  info->vertex_indices_idx - 1,
+			  info->vertex_indices[i], ptr);
 			continue;
 		}
 
@@ -579,46 +611,24 @@ static uint8_t prepare_context(struct model *model)
 	return 1;
 }
 
-static inline void unmap_object_info(struct object_info *info)
+static inline void free_shape_data(struct shape_info *info)
 {
-	if (info->vertices) {
-		munmap(info->vertices, MAP_SIZE);
-		info->vertices = NULL;
-	}
-
-	if (info->vertex_indices) {
-		munmap(info->vertex_indices, MAP_SIZE);
-		info->vertex_indices = NULL;
-	}
-
-	if (info->normals) {
-		munmap(info->normals, MAP_SIZE);
-		info->normals = NULL;
-	}
-
-	if (info->normal_indices) {
-		munmap(info->normal_indices, MAP_SIZE);
-		info->normal_indices = NULL;
-	}
-
-	if (info->uvs) {
-		munmap(info->uvs, MAP_SIZE);
-		info->uvs = NULL;
-	}
-
-	if (info->uv_indices) {
-		munmap(info->uv_indices, MAP_SIZE);
-		info->uv_indices = NULL;
-	}
+	dealloc(info->vertices);
+	dealloc(info->colors);
+	dealloc(info->vertex_indices);
+	dealloc(info->normals);
+	dealloc(info->normal_indices);
+	dealloc(info->uvs);
+	dealloc(info->uv_indices);
 }
 
-static inline uint8_t map_object_info(struct object_info *info,
+#define alloc_component(component) malloc(sizeof(*(component)) * MAX_INDEX)
+
+static inline uint8_t alloc_shape_data(struct shape_info *info,
   uint8_t ignore_texture)
 {
-	uint32_t prot = PROT_READ | PROT_WRITE;
-	uint32_t flags = MAP_ANONYMOUS | MAP_PRIVATE;
-
 	info->vertices_idx = 0;
+	info->colors_idx = 0;
 	info->vertex_indices_idx = 0;
 
 	info->normals_idx = 0;
@@ -627,28 +637,123 @@ static inline uint8_t map_object_info(struct object_info *info,
 	info->uvs_idx = 0;
 	info->uv_indices_idx = 0;
 
-	if (!(info->vertices = mmap(NULL, MAP_SIZE, prot, flags, -1, 0)))
-		return 0;
+	if (!(info->vertices = alloc_component(info->vertices)))
+		goto err;
 
-	if (!(info->vertex_indices = mmap(NULL, MAP_SIZE, prot, flags, -1, 0)))
-		return 0;
+	if (!(info->colors = alloc_component(info->colors)))
+		goto err;
 
-	if (!(info->normals = mmap(NULL, MAP_SIZE, prot, flags, -1, 0)))
-		return 0;
+	if (!(info->vertex_indices = alloc_component(info->vertex_indices)))
+		goto err;
 
-	if (!(info->normal_indices = mmap(NULL, MAP_SIZE, prot, flags, -1, 0)))
-		return 0;
+	if (!(info->normals = alloc_component(info->normals)))
+		goto err;
+
+	if (!(info->normal_indices = alloc_component(info->normal_indices)))
+		goto err;
+
 
 	if (ignore_texture) {
 		info->uvs = NULL;
 		info->uv_indices = NULL;
 	} else {
-		if (!(info->uvs = mmap(NULL, MAP_SIZE, prot, flags, -1, 0)))
-			return 0;
+		if (!(info->uvs = alloc_component(info->uvs)))
+			goto err;
 
-		if (!(info->uv_indices = mmap(NULL, MAP_SIZE, prot, flags, -1, 0)))
-			return 0;
+		if (!(info->uv_indices = alloc_component(info->uv_indices)))
+			goto err;
 	}
+
+	return 1;
+
+err:
+	free_shape_data(info);
+	return 0;
+}
+
+static uint8_t prepare_vertices(char *str, struct shape_info *info)
+{
+	union gm_point3 vertex;
+	union color_rgb color;
+	uint8_t n;
+
+	/* check if color information is attached */
+	n = sscanf(str, "v %f %f %f %f %f %f\n",
+	  &vertex.x, &vertex.y, &vertex.z, &color.r, &color.g, &color.b);
+
+	if (n == 6) {
+		info->vertices[info->vertices_idx++] = vertex.x;
+
+		if (info->vertices_idx >= MAX_INDEX) {
+			ee("num of vertices is out of range %u\n", MAX_INDEX);
+			return 0;
+		}
+
+		info->vertices[info->vertices_idx++] = vertex.y;
+
+		if (info->vertices_idx >= MAX_INDEX) {
+			ee("num of vertices is out of range %u\n", MAX_INDEX);
+			return 0;
+		}
+
+		info->vertices[info->vertices_idx++] = vertex.z;
+
+		if (info->vertices_idx >= MAX_INDEX) {
+			ee("num of vertices is out of range %u\n", MAX_INDEX);
+			return 0;
+		}
+
+		info->colors[info->colors_idx++] = color.r;
+		info->colors[info->colors_idx++] = color.g;
+		info->colors[info->colors_idx++] = color.b;
+		return 1;
+	}
+
+	n = sscanf(str, "v %f %f %f\n", &vertex.x, &vertex.y, &vertex.z);
+
+	if (n != 3) {
+		ee("'v float float float' is expected | str: '%s'\n", str);
+		return 0;
+	}
+
+	info->vertices[info->vertices_idx++] = vertex.x;
+	info->vertices[info->vertices_idx++] = vertex.y;
+	info->vertices[info->vertices_idx++] = vertex.z;
+
+	return 1;
+}
+
+static uint8_t prepare_normals(char *str, struct shape_info *info)
+{
+	union gm_point3 normal;
+	uint8_t n;
+
+	n = sscanf(str, "vn %f %f %f\n", &normal.x, &normal.y, &normal.z);
+
+	if (n != 3) {
+		ee("'vn float float float' is expected | str: '%s'\n", str);
+		return 0;
+	}
+
+	info->normals[info->normals_idx++] = normal.x;
+	info->normals[info->normals_idx++] = normal.y;
+	info->normals[info->normals_idx++] = normal.z;
+
+	return 1;
+}
+
+static uint8_t prepare_uv(char *str, struct shape_info *info)
+{
+	union gm_point2 uv;
+	uint8_t n = sscanf(str, "vt %f %f\n", &uv.x, &uv.y);
+
+	if (n != 2) {
+		ee("'vt float float' is expected | str: '%s'\n", str);
+		return 0;
+	}
+
+	info->uvs[info->uvs_idx++] = uv.x;
+	info->uvs[info->uvs_idx++] = uv.y;
 
 	return 1;
 }
@@ -657,18 +762,17 @@ uint8_t load_model(char *buf, size_t len, struct model *model)
 {
 	struct list_head *cur;
 	struct texlib texlib;
-	struct object_info info;
+	struct shape_info info;
 	uint8_t ret = 0;
 	char *ptr = buf;
 	char *end = buf + len;
 	char *str = NULL;
-	uint8_t color_idx = 0;
 	uint32_t start_time = time_ms();
 
 	list_init(&texlib.items);
 
-	if (!map_object_info(&info, model->ignore_texture)) {
-		ee("failed to map object info data\n");
+	if (!alloc_shape_data(&info, model->ignore_texture)) {
+		ee("failed to map shape info data\n");
 		return 0;
 	}
 
@@ -693,7 +797,7 @@ uint8_t load_model(char *buf, size_t len, struct model *model)
 			dd("o or g: %s\n", str);
 
 			if (info.vertex_indices_idx)
-				prepare_object(model, &info);
+				prepare_shape(model, &info);
 
 			strip_str(str);
 			info.name = strdup(&str[2]);
@@ -721,51 +825,27 @@ uint8_t load_model(char *buf, size_t len, struct model *model)
 			}
 		} else if (str[0] == 'f' && str[1] == ' ') {
 			prepare_indices(str + 2, &info); /* f[[:space:]] */
-		} else if (str[0] == 'v' && str[1] == ' ') { /* vertex */
-			union gm_point3 vertex;
-			uint8_t n = sscanf(str, "v %f %f %f\n", &vertex.x, &vertex.y, &vertex.z);
-
-			if (n != 3) {
-				ee("'v float float float' is expected | str: '%s'\n", str);
+		} else if (str[0] == 'v' && str[1] == ' ') {
+			if (!prepare_vertices(str, &info))
 				goto out;
-			}
-
-			info.vertices[info.vertices_idx++] = vertex.x;
-			info.vertices[info.vertices_idx++] = vertex.y;
-			info.vertices[info.vertices_idx++] = vertex.z;
-		} else if (str[0] == 'v' && str[1] == 'n') { /* vertex normal */
-			union gm_point3 normal;
-			uint8_t n = sscanf(str, "vn %f %f %f\n", &normal.x, &normal.y, &normal.z);
-
-			if (n != 3) {
-				ee("'vn float float float' is expected | str: '%s'\n", str);
+		} else if (str[0] == 'v' && str[1] == 'n') {
+			if (!prepare_normals(str, &info))
 				goto out;
-			}
-
-			info.normals[info.normals_idx++] = normal.x;
-			info.normals[info.normals_idx++] = normal.y;
-			info.normals[info.normals_idx++] = normal.z;
 		} else if (!model->ignore_texture &&
 		  str[0] == 'v' && str[1] == 't') { /* texture uv */
-			union gm_point2 uv;
-			uint8_t n = sscanf(str, "vt %f %f\n", &uv.x, &uv.y);
-
-			if (n != 2) {
-				ee("'vt float float' is expected | str: '%s'\n", str);
+			if (!prepare_uv(str, &info))
 				goto out;
-			}
-
-			info.uvs[info.uvs_idx++] = uv.x;
-			info.uvs[info.uvs_idx++] = uv.y;
 		}
 
 		str = NULL;
 	}
 
-	if (info.name)
-		ret = prepare_object(model, &info);
+	if (!info.name)
+		info.name = strdup(model->name);
 
-	ii("prepared %u objects in %u ms\n", info.ctx->objects_num,
+	ret = prepare_shape(model, &info);
+
+	ii("prepared %u shapes in %u ms\n", info.ctx->shapes_num,
 	  (uint32_t) time_ms() - start_time);
 
 	ii("model extents min { %.4f %.4f %.4f } max { %.4f %.4f %.4f }\n",
@@ -773,7 +853,7 @@ uint8_t load_model(char *buf, size_t len, struct model *model)
 	  model->max.x, model->max.y, model->max.z);
 out:
 	free((void *) info.name);
-	unmap_object_info(&info);
+	free_shape_data(&info);
 
 	struct list_head *tmp;
 
@@ -795,24 +875,24 @@ void erase_model(struct model *model)
 	struct list_head *cur;
 	struct list_head *tmp;
 
-	list_walk_safe(cur, tmp, &model->objects) {
-		struct wfobj *obj = container_of(cur, struct wfobj, head);
+	list_walk_safe(cur, tmp, &model->shapes) {
+		struct wfobj *shape = container_of(cur, struct wfobj, head);
 
-		glDeleteBuffers(1, &obj->vbo);
-		glDeleteBuffers(1, &obj->ibo);
-		glDeleteTextures(1, &obj->tex);
+		glDeleteBuffers(1, &shape->vbo);
+		glDeleteBuffers(1, &shape->ibo);
+		glDeleteTextures(1, &shape->tex);
 
-		list_del(&obj->head);
+		list_del(&shape->head);
 
-		free(obj->name);
-		free(obj->texname);
-		free(obj);
+		free(shape->name);
+		free(shape->texname);
+		free(shape);
 	}
 
 	dealloc(model->ctx);
 }
 
-uint8_t prepare_model(const char *path, struct model *model, void *amgr)
+uint8_t prepare_model(char *path, struct model *model, void *amgr)
 {
 	ii("read file %s\n", path);
 
@@ -824,7 +904,7 @@ uint8_t prepare_model(const char *path, struct model *model, void *amgr)
 	model->min.x = model->min.y = model->min.z = UINT32_MAX;
 	model->max.x = model->max.y = model->max.z = 0;
 
-	list_init(&model->objects);
+	list_init(&model->shapes);
 
 	((struct context *) model->ctx)->amgr = amgr;
 
@@ -834,6 +914,9 @@ uint8_t prepare_model(const char *path, struct model *model, void *amgr)
 		dealloc(model->ctx);
 		return 0;
 	}
+
+	/* basename can modify path; hence call it here */
+	model->name = basename(path);
 
 	uint8_t ret = load_model((char *) ainfo.buf, ainfo.len, model);
 
@@ -858,26 +941,23 @@ void upload_model(struct model *model)
 	cache.ctx = (struct context *) model->ctx;
 	cache.deftex = default_texture();
 
-	list_walk(cur, &model->objects) {
-		struct wfobj *obj = container_of(cur, struct wfobj, head);
+	list_walk(cur, &model->shapes) {
+		struct wfobj *shape = container_of(cur, struct wfobj, head);
 
-		obj->tex = cache.deftex;
-		upload_object(obj, &cache);
+		shape->tex = cache.deftex;
+		upload_shape(shape, &cache);
 
 		ii("upload obj %u %s | %u elements, %u indices | tex %u %s | visible %u\n",
-		  obj->id, obj->name, obj->array_size, obj->indices_num,
-		  obj->tex, obj->texname, obj->visible);
+		  shape->id, shape->name, shape->array_size, shape->indices_num,
+		  shape->tex, shape->texname, shape->visible);
 
-		array_bytes += obj->array_size;
-		indices_bytes += obj->indices_num;
+		array_bytes += shape->array_size;
+		indices_bytes += shape->indices_num;
 
-		dealloc(obj->name);
-		dealloc(obj->texname);
-
-		munmap(obj->indices, MAP_SIZE);
-		obj->indices = NULL;
-		munmap(obj->array, MAP_SIZE);
-		obj->array = NULL;
+		dealloc(shape->name);
+		dealloc(shape->texname);
+		dealloc(shape->indices);
+		dealloc(shape->array);
 	}
 
 	struct list_head *tmp;
@@ -889,8 +969,8 @@ void upload_model(struct model *model)
 		free(texinfo);
 	}
 
-	ii("uploaded %u objects in %u ms | total bytes: array %u indices %u\n",
-	  cache.ctx->objects_num, (uint32_t) time_ms() - start_time,
+	ii("uploaded %u shapes in %u ms | total bytes: array %u indices %u\n",
+	  cache.ctx->shapes_num, (uint32_t) time_ms() - start_time,
 	  (uint32_t) (array_bytes * sizeof(float)),
 	  (uint32_t) (indices_bytes * sizeof(uint16_t)));
 }

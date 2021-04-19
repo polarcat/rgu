@@ -20,7 +20,9 @@ struct volume {
 struct track {
 	const char *name;
 	uint8_t loaded:1;
-	const uint8_t keep:1;
+	uint8_t keep:1;
+	uint8_t stalled;
+	time_t timestamp;
 	struct volume volume;
 	struct player *player;
 	struct engine *engine; /* engine binding */
@@ -30,6 +32,7 @@ struct engine *audio_open(void);
 void audio_close(struct engine **);
 void audio_load(void *amgr, struct track *);
 void audio_unload(struct track *);
+void audio_reset(struct track *track);
 void audio_loop(struct track *, uint8_t loop);
 void audio_play(struct track *);
 void audio_stop(struct track *);

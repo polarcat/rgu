@@ -60,7 +60,7 @@ uint8_t make_round_rect(float sx, float sy, float r, struct round_rect *rect)
 		return 0;
 	}
 
-	if (!(rect->indices = (uint8_t *) malloc(rect->verts_num))) {
+	if (!(rect->indices = (element_t *) malloc(rect->verts_num))) {
 		ee("failed to allocate indices %u bytes\n", rect->verts_num);
 		clean_round_rect(rect);
 		return 0;
@@ -171,7 +171,7 @@ uint8_t make_round_icon(uint8_t rn, float r, struct round_rect *rect)
 		return 0;
 	}
 
-	if (!(rect->indices = (uint8_t *) malloc(rect->verts_num))) {
+	if (!(rect->indices = (element_t *) malloc(rect->verts_num))) {
 		ee("failed to allocate indices %u bytes\n", rect->verts_num);
 		return 0;
 	}
@@ -254,12 +254,20 @@ uint8_t make_callout(const struct callout_info *info, struct round_rect *rect)
 		pin_height = .2;
 
 	const uint8_t rn = 3;
-	const uint8_t pins = 3;
+	uint8_t pins = 3;
 	uint8_t step = 90 / rn;
 	float cx = info->w - r;
 	float cy = info->h - r;
 	uint16_t i;
 	uint16_t size;
+
+	if (info->skew != 0) {
+		pins = 0;
+	} else if (info->pin_symmetric) {
+		pins = 6;
+	} else {
+		pins = 3;
+	}
 
 	rect->alloc = 1;
 	rect->verts_num = 4 * (rn + 1) + 1 + 1 + pins; /* +1 for center +1 for closure */
@@ -280,7 +288,7 @@ uint8_t make_callout(const struct callout_info *info, struct round_rect *rect)
 		return 0;
 	}
 
-	if (!(rect->indices = (uint8_t *) malloc(rect->verts_num))) {
+	if (!(rect->indices = (element_t *) malloc(rect->verts_num))) {
 		ee("failed to allocate indices %u bytes\n", rect->verts_num);
 		return 0;
 	}
@@ -294,7 +302,7 @@ uint8_t make_callout(const struct callout_info *info, struct round_rect *rect)
 	i = 1;
 
 	for (uint8_t a = 0; a < 91; a += step) {
-		rect->verts[i].x = cx + r * cos(radians(a));
+		rect->verts[i].x = cx + r * cos(radians(a)) + info->skew;
 		rect->verts[i].y = cy + r * sin(radians(a));
 		rect->uvs[i].x = convert_x(rect->verts[i].x);
 		rect->uvs[i].y = convert_y(rect->verts[i].y);
@@ -308,42 +316,75 @@ uint8_t make_callout(const struct callout_info *info, struct round_rect *rect)
 		rect->uvs[i].x = convert_x(rect->verts[i].x);
 		rect->uvs[i].y = convert_y(rect->verts[i].y);
 		rect->indices[i] = i;
+
+		if (pins && info->pin_symmetric) {
+			float y = rect->verts[i].y;
+
+			if (rect->verts[i].x == -cx && rect->verts[i].y > 0) {
+				i++;
+				rect->verts[i].x = pin_right;
+				rect->verts[i].y = y;
+				rect->uvs[i].x = convert_x(rect->verts[i].x);
+				rect->uvs[i].y = convert_y(rect->verts[i].y);
+				rect->indices[i] = i;
+
+				i++;
+				rect->verts[i].x = pin_center;
+				if (pin_height == 0)
+					rect->verts[i].y = y;
+				else
+					rect->verts[i].y = cy + pin_height;
+				rect->uvs[i].x = convert_x(rect->verts[i].x);
+				rect->uvs[i].y = convert_y(rect->verts[i].y);
+				rect->indices[i] = i;
+
+				i++;
+				rect->verts[i].x = pin_left;
+				rect->verts[i].y = y;
+				rect->uvs[i].x = convert_x(rect->verts[i].x);
+				rect->uvs[i].y = convert_y(rect->verts[i].y);
+				rect->indices[i] = i;
+			}
+		}
+
 		i++;
 	}
 
 	for (uint16_t a = 180; a < 271; a += step) {
-		rect->verts[i].x = -cx + r * cos(radians(a));
+		rect->verts[i].x = -cx + r * cos(radians(a)) - info->skew;
 		rect->verts[i].y = -cy + r * sin(radians(a));
 		rect->uvs[i].x = convert_x(rect->verts[i].x);
 		rect->uvs[i].y = convert_y(rect->verts[i].y);
 		rect->indices[i] = i;
 
-		float y = rect->verts[i].y;
+		if (pins) {
+			float y = rect->verts[i].y;
 
-		if (rect->verts[i].x == -cx && rect->verts[i].y < 0) {
-			i++;
-			rect->verts[i].x = pin_left;
-			rect->verts[i].y = y;
-			rect->uvs[i].x = convert_x(rect->verts[i].x);
-			rect->uvs[i].y = convert_y(rect->verts[i].y);
-			rect->indices[i] = i;
-
-			i++;
-			rect->verts[i].x = pin_center;
-			if (pin_height == 0)
+			if (rect->verts[i].x == -cx && rect->verts[i].y < 0) {
+				i++;
+				rect->verts[i].x = pin_left;
 				rect->verts[i].y = y;
-			else
-				rect->verts[i].y = -cy - pin_height;
-			rect->uvs[i].x = convert_x(rect->verts[i].x);
-			rect->uvs[i].y = convert_y(rect->verts[i].y);
-			rect->indices[i] = i;
+				rect->uvs[i].x = convert_x(rect->verts[i].x);
+				rect->uvs[i].y = convert_y(rect->verts[i].y);
+				rect->indices[i] = i;
 
-			i++;
-			rect->verts[i].x = pin_right;
-			rect->verts[i].y = y;
-			rect->uvs[i].x = convert_x(rect->verts[i].x);
-			rect->uvs[i].y = convert_y(rect->verts[i].y);
-			rect->indices[i] = i;
+				i++;
+				rect->verts[i].x = pin_center;
+				if (pin_height == 0)
+					rect->verts[i].y = y;
+				else
+					rect->verts[i].y = -cy - pin_height;
+				rect->uvs[i].x = convert_x(rect->verts[i].x);
+				rect->uvs[i].y = convert_y(rect->verts[i].y);
+				rect->indices[i] = i;
+
+				i++;
+				rect->verts[i].x = pin_right;
+				rect->verts[i].y = y;
+				rect->uvs[i].x = convert_x(rect->verts[i].x);
+				rect->uvs[i].y = convert_y(rect->verts[i].y);
+				rect->indices[i] = i;
+			}
 		}
 
 		i++;
@@ -379,9 +420,6 @@ uint8_t make_circle(struct shape *circle, uint8_t step)
 			step++;
 	}
 
-	float cx = 0;
-	float cy = 0;
-	uint16_t steps = 360 / step;
 	uint16_t size;
 
 	circle->alloc = 1;
@@ -403,7 +441,7 @@ uint8_t make_circle(struct shape *circle, uint8_t step)
 
 	circle->indices_num = (circle->verts_num  - 1) * 3;
 
-	if (!(circle->indices = (uint8_t *) malloc(circle->indices_num))) {
+	if (!(circle->indices = (element_t *) malloc(circle->indices_num))) {
 		ee("failed to allocate indices %u bytes\n",
 		  circle->indices_num);
 		return 0;
@@ -451,3 +489,113 @@ uint8_t make_circle(struct shape *circle, uint8_t step)
 #endif
 	return 1;
 }
+
+uint8_t make_rrect(float rx, float ry, uint8_t steps, struct round_rect *rect)
+{
+	uint16_t limit = 4 * (steps + 1) + 1 + 1;
+
+	if (limit >= UINT8_MAX) {
+		ee("too many vertices %u\n", limit);
+		return 0;
+	}
+
+	if (rx < .01 || rx > .99)
+		rx = .1;
+
+	if (ry < .01 || ry > .99)
+		ry = .1;
+
+	float step = 90. / steps;
+	float cx = 1 - rx;
+	float cy = 1 - ry;
+	uint16_t size;
+
+	rect->alloc = 1;
+	rect->verts_num = limit;
+
+	size = sizeof(*rect->verts) * rect->verts_num;
+
+	ii("need %f/%u steps %u vertices %u bytes (%zu) | cxy { %.4f %.4f }\n",
+	  step, steps, rect->verts_num, size, sizeof(*rect->verts), cx, cy);
+
+	if (!(rect->verts = (union gm_point2 *) malloc(size))) {
+		ee("failed to allocate vertices %u bytes\n", size);
+		return 0;
+	}
+
+	if (!(rect->uvs = (union gm_point2 *) malloc(size))) {
+		ee("failed to allocate uvs %u bytes\n", size);
+		return 0;
+	}
+
+	size = sizeof(*rect->indices) * rect->verts_num;
+
+	dd("%u indices %u bytes (%zu)\n", rect->verts_num, size,
+	  sizeof(*rect->indices));
+
+	if (!(rect->indices = (element_t *) malloc(size))) {
+		ee("failed to allocate indices %u bytes\n", size);
+		return 0;
+	}
+
+	rect->verts[0].x = 0;
+	rect->verts[0].y = 0;
+	rect->uvs[0].x = .5;
+	rect->uvs[0].y = .5;
+	rect->indices[0] = 0;
+
+	element_t i = 1;
+	float a = 0;
+
+	while (a <= 90) {
+		rect->verts[i].x = cx + rx * cos(radians(a));
+		rect->verts[i].y = cy + ry * sin(radians(a));
+		rect->uvs[i].x = convert_x(rect->verts[i].x);
+		rect->uvs[i].y = convert_y(rect->verts[i].y);
+		rect->indices[i] = i;
+		i++;
+		a += step;
+	}
+
+	a = 90;
+	while (a <= 180) {
+		rect->verts[i].x = -cx + rx * cos(radians(a));
+		rect->verts[i].y = cy + ry * sin(radians(a));
+		rect->uvs[i].x = convert_x(rect->verts[i].x);
+		rect->uvs[i].y = convert_y(rect->verts[i].y);
+		rect->indices[i] = i;
+		i++;
+		a += step;
+	}
+
+	a = 180;
+	while (a <= 270) {
+		rect->verts[i].x = -cx + rx * cos(radians(a));
+		rect->verts[i].y = -cy + ry * sin(radians(a));
+		rect->uvs[i].x = convert_x(rect->verts[i].x);
+		rect->uvs[i].y = convert_y(rect->verts[i].y);
+		rect->indices[i] = i;
+		i++;
+		a += step;
+	}
+
+	a = 270;
+	while (a <= 360) {
+		rect->verts[i].x = cx + rx * cos(radians(a));
+		rect->verts[i].y = -cy + ry * sin(radians(a));
+		rect->uvs[i].x = convert_x(rect->verts[i].x);
+		rect->uvs[i].y = convert_y(rect->verts[i].y);
+		rect->indices[i] = i;
+		i++;
+		a += step;
+	}
+
+	rect->verts[i].x = rect->verts[1].x;
+	rect->verts[i].y = rect->verts[1].y;
+	rect->uvs[i].x = rect->uvs[1].x;
+	rect->uvs[i].y = rect->uvs[1].y;
+	rect->indices[i] = i;
+
+	return 1;
+}
+
