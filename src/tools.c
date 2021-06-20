@@ -599,3 +599,16 @@ uint8_t make_rrect(float rx, float ry, uint8_t steps, struct round_rect *rect)
 	return 1;
 }
 
+void round_rect_extents(struct round_rect *shape, union gm_point2 *extents)
+{
+	extents->x = 0;
+	extents->y = 0;
+
+	for (uint16_t i = 0; i < shape->verts_num; ++i) {
+		if (extents->x < shape->verts[i].x)
+			extents->x = shape->verts[i].x;
+
+		if (extents->y < shape->verts[i].y)
+			extents->y = shape->verts[i].y;
+	}
+}

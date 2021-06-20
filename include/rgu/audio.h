@@ -22,7 +22,7 @@ struct track {
 	uint8_t loaded:1;
 	uint8_t keep:1;
 	uint8_t stalled;
-	time_t timestamp;
+	uint64_t timestamp;
 	struct volume volume;
 	struct player *player;
 	struct engine *engine; /* engine binding */

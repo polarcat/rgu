@@ -333,15 +333,15 @@ static uint8_t prepare_shape(struct model *model, struct shape_info *info)
 
 		if (shape->with_color) {
 			//vertex_index *= 3;;
-			float r = info->colors[vertex_index * 3];
-			float g = info->colors[vertex_index * 3 + 1];
-			float b = info->colors[vertex_index * 3 + 2];
+			shape->color.r = info->colors[vertex_index * 3];
+			shape->color.g = info->colors[vertex_index * 3 + 1];
+			shape->color.b = info->colors[vertex_index * 3 + 2];
 
-			shape->array[shape->array_size++] = r;
-			shape->array[shape->array_size++] = g;
-			shape->array[shape->array_size++] = b;
+			shape->array[shape->array_size++] = shape->color.r;
+			shape->array[shape->array_size++] = shape->color.g;
+			shape->array[shape->array_size++] = shape->color.b;
 			dd("vertex %u | color (%f %f %f)\n", vertex_index,
-			  r, g, b);
+			  shape->color.r, shape->color.g, shape->color.b);
 		}
 
 		dd("[%u] %u | v { %.4f %.4f %.4f } | n { %.4f %.4f %.4f } | t { %.4f %.4f }\n",

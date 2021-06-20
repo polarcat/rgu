@@ -216,7 +216,7 @@ void gm_rotate_z(union gm_mat4 *mat, float rad)
 	mat->sy = c;
 }
 
-/* TODO craft faster variant of it */
+/* TODO switch to mat3 operations */
 void gm_mat4_transform(union gm_mat4 *mat, union gm_point3 *size,
   union gm_point3 *pos, union gm_point3 *angle /* radians */)
 {
@@ -248,13 +248,15 @@ void gm_mat4_transform(union gm_mat4 *mat, union gm_point3 *size,
 	gm_mat4_mulmm(rot.data, rot.data, scale.data);
 	gm_mat4_mulmm(mat->data, trans.data, rot.data);
 #else
-	/* shortcut: apply tranlation as is */
+	/* shortcut: apply translation as is */
 	gm_mat4_mulmm(rot.data, rot_y.data, rot_z.data);
 	gm_mat4_mulmm(rot.data, rot.data, rot_x.data);
 	gm_mat4_mulmm(mat->data, rot.data, scale.data);
+#if 0
 	mat->x = pos->x;
 	mat->y = pos->y;
 	mat->z = pos->z;
+#endif
 #endif
 }
 

@@ -9,6 +9,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <inttypes.h>
 
 #ifndef LIB_TAG
 #define LIB_TAG "rgu"

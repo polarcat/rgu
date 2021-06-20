@@ -71,3 +71,5 @@ void clean_round_rect(struct round_rect *);
 
 uint8_t make_circle(struct shape *, uint8_t step);
 uint8_t make_rrect(float rx, float ry, uint8_t steps, struct round_rect *);
+
+void round_rect_extents(struct round_rect *, union gm_point2 *);

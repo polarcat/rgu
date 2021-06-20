@@ -10,13 +10,13 @@
 #include <stdint.h>
 #include <math.h>
 
-#define gm_print_mat4(m) { \
-	ii(#m"\n")\
-	ii("%+.06f %+.06f %+.06f %+.06f\n", m[0], m[4], m[8], m[12]); \
-	ii("%+.06f %+.06f %+.06f %+.06f\n", m[1], m[5], m[9], m[13]); \
-	ii("%+.06f %+.06f %+.06f %+.06f\n", m[2], m[6], m[10], m[14]); \
-	ii("%+.06f %+.06f %+.06f %+.06f\n", m[3], m[7], m[11], m[15]); \
-	ii("\n")\
+#define gm_print_mat4(m) {\
+	ii(#m"\n");\
+	ii("%+.06f %+.06f %+.06f %+.06f\n", m[0], m[4], m[8], m[12]);\
+	ii("%+.06f %+.06f %+.06f %+.06f\n", m[1], m[5], m[9], m[13]);\
+	ii("%+.06f %+.06f %+.06f %+.06f\n", m[2], m[6], m[10], m[14]);\
+	ii("%+.06f %+.06f %+.06f %+.06f\n", m[3], m[7], m[11], m[15]);\
+	ii("\n");\
 }
 
 #define GM_MAT4_IDENTITY {\
@@ -234,4 +234,14 @@ void gm_close(void);
 static inline uint8_t pot(uint64_t val)
 {
   return val && (!(val & (val - 1)));
+}
+
+static inline int32_t fp2int(float val)
+{
+	return val * UINT16_MAX;
+}
+
+static inline float int2fp(float val)
+{
+	return val / UINT16_MAX;
 }

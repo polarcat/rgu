@@ -58,12 +58,12 @@
 	ii("%ld.%06ld \033[%sm%.06lf\033[0m \033[1;33m" #p "\033[0m " fmt " | %s:%d\n",\
              cur_##p.tv_sec, cur_##p.tv_usec, color_##p, time_diff_##p, ##arg, __func__, __LINE__)
 
-static inline time_t time_ms(void)
+static inline uint64_t time_ms(void)
 {
 	struct timespec now;
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
-	return now.tv_sec * 1000 + now.tv_nsec * .000001;
+	return now.tv_sec * 1000 + (uint32_t) (now.tv_nsec * .000001);
 }
 
 struct timeinfo {
@@ -88,7 +88,7 @@ struct fps_info {
 
 static inline void print_fps(struct fps_info *info)
 {
-	time_t now_ms = time_ms();
+	uint64_t now_ms = time_ms();
 
 	if (info->frames == info->frames_max) {
 		float secs = (now_ms - info->prev_ms) / 1000.;
@@ -106,7 +106,7 @@ static inline void print_fps(struct fps_info *info)
 
 static inline void count_fps(struct fps_info *info)
 {
-	time_t now_ms = time_ms();
+	uint64_t now_ms = time_ms();
 
 	if (info->frames == info->frames_max) {
 		float secs = (now_ms - info->prev_ms) / 1000.;

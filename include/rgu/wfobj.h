@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 
+#include <rgu/gl.h>
 #include <rgu/gm.h>
 #include <rgu/color.h>
 #include <rgu/list.h>
@@ -33,6 +34,7 @@ struct wfobj {
 	float *array;
 	uint32_t array_size;
 	uint8_t with_color;
+	union color_rgb color; /* voxel object color */
 
 	struct list_head head;
 };
